@@ -29,7 +29,7 @@ export default async function ReportsPage({ params }: PageProps<"/org/[orgId]/re
         title="Rapporter"
         description="Data indsamles pr. selskab og rapporteringsår. En rapport bestemmer modul (B eller B+C) og hvilke selskaber der samles."
       />
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
           {periods.length === 0 && (
             <Card>

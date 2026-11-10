@@ -11,17 +11,28 @@ import { db } from "@/lib/db";
 import { getInviteOptions, getMembersAndInvites, getVisibleCompanies } from "@/lib/org-data";
 import { validParentIds } from "@/lib/permissions";
 import { LEGAL_FORM_LABELS, LOCATION_CONTROL_LABELS } from "@/lib/validation";
+import { ModuleList, PeriodSwitcher } from "@/components/module-list";
+import { modulesFor } from "@/lib/forms/registry";
+import { formContext, moduleStatuses } from "@/lib/module-data";
+import { getPeriods, pickPeriod } from "@/lib/periods";
 
 const dateFmt = new Intl.DateTimeFormat("da-DK", { dateStyle: "medium" });
 
-export default async function CompanyPage({ params }: PageProps<"/org/[orgId]/companies/[companyId]">) {
+export default async function CompanyPage({ params, searchParams }: PageProps<"/org/[orgId]/companies/[companyId]">) {
   const { orgId, companyId } = await params;
+  const { period: periodParam } = await searchParams;
   const { user, access } = await requireOrgAccess(orgId);
   const companies = await getVisibleCompanies(orgId, access);
   const company = companies.find((c) => c.id === companyId);
   if (!company) deny();
 
   const canEdit = access.canEditCompany(companyId);
+  const canSeeData = access.canViewAll || access.managesCompany(companyId);
+  const periods = await getPeriods(orgId);
+  const period = pickPeriod(periods, periodParam);
+  const [statuses, dataCtx] = period
+    ? await Promise.all([moduleStatuses(period.id, `company:${companyId}`), formContext(period.id, companyId)])
+    : [new Map(), null];
   const allCompanies = await db.company.findMany({ where: { organizationId: orgId, archivedAt: null }, select: { id: true, name: true, parentId: true }, orderBy: { name: "asc" } });
   const allowedParents = validParentIds(allCompanies, companyId);
   const parent = allCompanies.find((c) => c.id === company.parentId);
@@ -65,8 +76,29 @@ export default async function CompanyPage({ params }: PageProps<"/org/[orgId]/co
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
+          {/* Indrapportering */}
+          {canSeeData && (
+            <Card>
+              <CardHeader
+                title={period ? `Indrapportering ${period.year}` : "Indrapportering"}
+                description="Selskabets moduler. Lokationernes moduler findes på hver lokation."
+                action={period && <PeriodSwitcher periods={periods} current={period.id} hrefFor={(id) => `/org/${orgId}/companies/${companyId}?period=${id}`} />}
+              />
+              {period && dataCtx ? (
+                <ModuleList
+                  modules={modulesFor("company")}
+                  statuses={statuses}
+                  comprehensive={dataCtx.comprehensive}
+                  hrefFor={(m) => `/org/${orgId}/companies/${companyId}/modules/${m.key}?period=${period.id}`}
+                />
+              ) : (
+                <EmptyState>Der er ikke oprettet et rapporteringsår endnu. {access.canManageOrg ? "Opret det under Rapporter." : "Kontakt koncernadmin."}</EmptyState>
+              )}
+            </Card>
+          )}
+
           {/* Lokationer */}
           <Card>
             <CardHeader title="Lokationer og faciliteter" description="Alle lokationer selskabet ejer, lejer eller driver/forvalter. Hver lokation indrapporterer energi, vand og affald." />
@@ -78,7 +110,9 @@ export default async function CompanyPage({ params }: PageProps<"/org/[orgId]/co
                   <li key={loc.id} className="px-5 py-3">
                     <details className="group">
                       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                        <span className="font-medium">{loc.name}</span>
+                        <Link href={`/org/${orgId}/locations/${loc.id}${period ? `?period=${period.id}` : ""}`} className="font-medium text-brand-700 hover:underline">
+                          {loc.name}
+                        </Link>
                         <span className="text-neutral-600">{loc.address}</span>
                         <Badge>{LOCATION_CONTROL_LABELS[loc.control]}</Badge>
                         {loc.latitude === null ? <Badge tone="amber">Mangler geolokation</Badge> : null}

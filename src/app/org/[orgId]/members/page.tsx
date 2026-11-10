@@ -25,7 +25,7 @@ export default async function MembersPage({ params }: PageProps<"/org/[orgId]/me
   return (
     <>
       <PageHeader title="Medlemmer" description="Hvem har adgang, og til hvad. Invitationer sendes pr. mail og gælder i 14 dage." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card>
           <CardHeader title="Brugere og invitationer" />
           <MemberList orgId={orgId} data={data} access={access} currentUserId={user.id} />

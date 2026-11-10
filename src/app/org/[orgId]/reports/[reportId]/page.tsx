@@ -46,7 +46,7 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
         description={`Rapporteringsår ${report.period.year} · ${dateFmt.format(report.period.startDate)} – ${dateFmt.format(report.period.endDate)}`}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card>
           <CardHeader title="Rapportopsætning" description="Rapportgrundlag, afgrænsning og udeladelser (B1)." />
           {access.canManageOrg ? (

@@ -22,6 +22,8 @@ model User {
   memberships         Membership[]
   invitationsSent     Invitation[] @relation("InvitedBy")
   auditLogs           AuditLog[]
+  moduleEdits         ModuleData[]
+  attachments         Attachment[]
 }
 
 model Session {
@@ -97,6 +99,7 @@ model Company {
   invitations  Invitation[]
   reportsAsReporting Report[]        @relation("ReportingCompany")
   reportLinks        ReportCompany[]
+  moduleData         ModuleData[]
 
   @@unique([organizationId, cvr])
   @@index([parentId])
@@ -122,6 +125,7 @@ model Location {
   company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   memberships Membership[]
   invitations Invitation[]
+  moduleData  ModuleData[]
 
   @@index([companyId])
 }
@@ -143,6 +147,7 @@ model ReportingPeriod {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   reports      Report[]
+  moduleData   ModuleData[]
 
   @@unique([organizationId, year])
 }
@@ -265,4 +270,58 @@ model AuditLog {
   user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, createdAt])
+}
+
+// ---------- Indrapportering (fase 2) ----------
+// Ét sæt svar pr. modul pr. mål (selskab eller lokation) pr. rapporteringsår.
+// Svarene ligger som JSON valideret mod modul-definitionen i src/lib/forms.
+
+enum ModuleStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED    // markeret færdig af brugeren (alle krævede felter udfyldt eller begrundet)
+  NOT_RELEVANT // hele modulet er ikke relevant, med begrundelse
+}
+
+model ModuleData {
+  id          String       @id @default(cuid())
+  periodId    String
+  moduleKey   String       // fx "company.general"
+  /// "company:<id>" eller "location:<id>" – én kolonne, så unik-nøglen virker uden NULL-problemer
+  targetKey   String
+  companyId   String
+  locationId  String?
+  answers     Json         @default("{}")
+  status      ModuleStatus @default(NOT_STARTED)
+  statusNote  String?
+  updatedById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  period      ReportingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  location    Location?       @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  updatedBy   User?           @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  attachments Attachment[]
+
+  @@unique([periodId, moduleKey, targetKey])
+  @@index([companyId, periodId])
+}
+
+/// Dokumentationsfil knyttet til en sektion i et modul
+model Attachment {
+  id           String   @id @default(cuid())
+  moduleDataId String
+  sectionKey   String
+  filename     String
+  contentType  String
+  size         Int
+  storageKey   String   @unique
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  moduleData ModuleData @relation(fields: [moduleDataId], references: [id], onDelete: Cascade)
+  uploadedBy User?      @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([moduleDataId])
 }

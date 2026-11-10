@@ -192,7 +192,8 @@ Svarene ligger i JSONB pr. skema, valideret med zod. Beregningsmotoren kører p�
 | 0. Afklaring | Svar på åbne spørgsmål, valg af faktorkilde, godkendelse af datamodel | Låst scope |
 | 1. Fundament ✅ | Repo, auth, koncern/selskab/lokation, roller, invitationer | Man kan oprette en koncern og invitere |
 | 1b. Rapportopsætning ✅ | Periode → "rapport" med B/B+C, individuel/konsolideret, omfattede selskaber. Geolokation og driftsperiode på lokationer | Rammen fra ModulOpdeling er på plads |
-| 2. Skemaer | Skemamotor med VS-mapping + B-felterne i de 10 selskabsmoduler og 7 lokationsmoduler (afsnit 1b), politikregister, autosave, uploads, datakilder, status pr. modul | Datterselskaber kan indrapportere Basismodulet |
+| 2a. Skemamotor ✅ | Motor, autosave, status, uploads, datakilder, B1 + lokationsenergi som første moduler | Indrapportering virker end-to-end |
+| 2b–2d. Skemaer | De resterende B-felter i de 10 selskabsmoduler og 7 lokationsmoduler (afsnit 1b), inkl. politikregister og Scope 1 med kobling til lokation | Datterselskaber kan indrapportere Basismodulet |
 | 3. Beregninger | Faktorbibliotek, enhedsomregning, alle KPI'er i tabellen ovenfor, tests | Live nøgletal pr. selskab |
 | 4. Konsolidering | Koncerndashboard, statusoverblik, review og godkendelse, lås | Samlet koncernopgørelse |
 | 5. Eksport | PPTX fra skabelon, PDF, Excel | Færdig rapport |
@@ -202,11 +203,20 @@ Første milepæl (fase 1–3 + simpel eksport) giver et end-to-end flow for ét 
 
 ---
 
-## 8. Åbne spørgsmål
-1. Hvem udfylder? Jeres konsulenter for kunderne eller kunderne selv? Skal appen håndtere **flere koncerner/kunder** (multi-tenant)?
-2. Hosting og stack: er der krav (Azure, Vercel/Supabase, on-prem)?
-3. Faktorkilde: Energistyrelsen/Klimakompasset? Hvilket GWP-sæt (AR5 eller AR6)?
-4. Skal Udvidet Modul (C1–C9) med i første version?
-5. Findes der eksisterende Jotform-svar, som skal importeres?
-6. Konsolidering: altid 100 % for datterselskaber, eller også ejerandelsbaseret?
-7. Skal PPTX følge Erhvervsstyrelsens layout 1:1, eller med jeres eget branding?
+## 8. Beslutninger og åbne spørgsmål
+
+### Besluttet
+| Emne | Beslutning | Konsekvens |
+|---|---|---|
+| Hvem udfylder | **Både kunder og konsulenter**: kunderne udfylder, konsulenterne gennemgår og retter | Vejledning skal være synlig ved hvert felt, men kunne foldes sammen. Konsulenter er koncernadmin hos kunden. Kommentarer pr. felt og "send tilbage" kommer i fase 4 |
+| Flere kunder | Ja (multi-tenant), allerede bygget i fase 1 | – |
+| Jotform-import | **Nej**, vi starter forfra | Feltnøgler designes alene efter VS-punkterne |
+| Vejledningstekster | **Genbrug** Jotforms "Info"- og "Sådan finder du data"-tekster. Skabelonens begrebsforklaringer omskrives kort | Teksterne ligger i skema-config pr. felt |
+| Udvidet Modul | Bygges gradvist. C-felter vises kun ved B+C (afsnit 1b) | – |
+| Uploads | **Afgøres senere**. Der bygges mod et storage-interface med lokal disk i udvikling | S3 eller Azure Blob kan sættes på uden kodeændringer |
+
+### Stadig åbne (blokerer ikke fase 2)
+1. Hosting: Azure, Vercel/Supabase eller egne servere? (afgør bl.a. storage og eksport-worker)
+2. Faktorkilde: Energistyrelsen/Klimakompasset? GWP-sæt AR5 eller AR6? *(skal besluttes før fase 3)*
+3. Konsolidering: altid 100 % for datterselskaber, eller også ejerandelsbaseret? *(før fase 4)*
+4. Skal PowerPoint-rapporten følge Erhvervsstyrelsens layout 1:1, eller have jeres eget branding? *(før fase 5)*

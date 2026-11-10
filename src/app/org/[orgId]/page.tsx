@@ -45,6 +45,34 @@ export default async function OrgOverview({ params }: PageProps<"/org/[orgId]">)
         ))}
       </div>
 
+      {!access.canViewAll && (
+        <Card className="mb-6">
+          <CardHeader title="Dine indrapporteringer" description="De selskaber og lokationer du har ansvar for." />
+          <ul className="divide-y divide-neutral-100 text-sm">
+            {companies
+              .filter((c) => access.managesCompany(c.id))
+              .map((c) => (
+                <li key={c.id}>
+                  <Link href={`/org/${orgId}/companies/${c.id}`} className="flex justify-between px-5 py-3 hover:bg-neutral-50">
+                    <span className="font-medium">{c.name}</span>
+                    <span className="text-xs text-neutral-500">Selskab</span>
+                  </Link>
+                </li>
+              ))}
+            {companies
+              .flatMap((c) => c.locations.filter((l) => access.contributesTo(l.id)).map((l) => ({ ...l, companyName: c.name })))
+              .map((l) => (
+                <li key={l.id}>
+                  <Link href={`/org/${orgId}/locations/${l.id}`} className="flex justify-between px-5 py-3 hover:bg-neutral-50">
+                    <span className="font-medium">{l.name}</span>
+                    <span className="text-xs text-neutral-500">Lokation · {l.companyName}</span>
+                  </Link>
+                </li>
+              ))}
+          </ul>
+        </Card>
+      )}
+
       <Card>
         <CardHeader title="Koncernstruktur" description="Selskaber markeret “ikke konsolideret” indgår ikke i koncernens samlede opgørelse." />
         {tree.length === 0 ? (

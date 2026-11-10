@@ -25,6 +25,7 @@ const ACTION_LABELS: Record<string, string> = {
   "report.update": "opdaterede rapport",
   "report.status": "ændrede status på rapport",
   "report.delete": "slettede rapport",
+  "module.status": "ændrede status på modul",
 };
 
 const timeFmt = new Intl.DateTimeFormat("da-DK", { dateStyle: "short", timeStyle: "short" });
@@ -44,7 +45,7 @@ export default async function SettingsPage({ params }: PageProps<"/org/[orgId]/s
   return (
     <>
       <PageHeader title="Indstillinger" />
-      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <Card className="self-start">
           <CardHeader title="Koncern" />
           <ActionForm action={renameOrganization} className="space-y-4 p-5">

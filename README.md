@@ -2,7 +2,7 @@
 
 Webapp til ESG-indrapportering efter VSME. Datterselskaber og deres lokationer indrapporterer, og data samles til en konsolideret rapport for moderselskabet, der eksporteres til PowerPoint/PDF. Se [PLAN.md](PLAN.md) for den samlede plan.
 
-**Status: Fase 1 og 1b er færdige.** De omfatter login med magic link, koncernstruktur (koncern → selskaber → lokationer med geolokation og driftsperiode), roller og invitationer, aktivitetslog og rapportopsætning. Rapportopsætningen dækker rapporteringsår og rapporter med B eller B+C, individuel eller konsolideret afgrænsning, omfattede selskaber, udeladelser og godkendelsesstatus. Modulstrukturen er beskrevet i [ModulOpdeling.md](ModulOpdeling.md).
+**Status: Fase 1, 1b og 2a er færdige.** Fase 2a er skemamotoren med de første moduler: B1 for selskaber og energi/scope 2 for lokationer. De omfatter login med magic link, koncernstruktur (koncern → selskaber → lokationer med geolokation og driftsperiode), roller og invitationer, aktivitetslog og rapportopsætning. Rapportopsætningen dækker rapporteringsår og rapporter med B eller B+C, individuel eller konsolideret afgrænsning, omfattede selskaber, udeladelser og godkendelsesstatus. Modulstrukturen er beskrevet i [ModulOpdeling.md](ModulOpdeling.md).
 
 ## Kom i gang
 
@@ -38,6 +38,10 @@ npm run dev
 prisma/schema.prisma        Datamodel
 src/lib/permissions.ts      Adgangsregler (rene funktioner + tests)
 src/lib/report-scope.ts     Rapportafgrænsning: individuel/konsolideret, omfattede selskaber (+ tests)
+src/lib/forms/              Skemamotor: typer, engine (synlighed/validering/fremdrift), registry og moduler
+src/lib/module-data.ts      Adgang, kontekst (B/B+C, antal ansatte) og lås for moduldata
+src/lib/storage.ts          Fil-lagring (lokal disk i udvikling, interface til S3/Azure)
+src/components/forms/       Modulformular med autosave, felter, tabeller og dokumentationsblok
 src/lib/auth.ts             Session → bruger → adgang (Data Access Layer)
 src/lib/actions/            Server actions (login, koncern, selskaber, lokationer, invitationer)
 src/lib/validation.ts       zod-skemaer
@@ -66,6 +70,22 @@ Data indsamles pr. **selskab og rapporteringsår** og genbruges på tværs af ra
 - status (under udarbejdelse → til gennemgang → godkendt).
 
 Når et rapporteringsår oprettes, laves der automatisk en koncernrapport. Konsolideringsflaget på et selskab er kun standardvalget, og det kan ændres for hver rapport. En godkendt rapport er låst.
+
+## Skemaer (moduler)
+
+Hvert modul defineres i `src/lib/forms/modules/*.ts` som sektioner og felter. Hvert felt har:
+- type,
+- VS-mapping (fx `B1.27e.iv`),
+- krav (fx kun over 10 ansatte),
+- betingelser ("vis hvis Ja"),
+- vejledningstekster.
+
+Samme definition bruges af formularen og af serverens validering. Et nyt modul tilføjes ved at skrive definitionen og registrere den i `registry.ts`.
+
+- Svar gemmes automatisk (ca. 1 sekund efter sidste ændring) pr. modul, mål (selskab eller lokation) og rapporteringsår.
+- Status: ikke startet → i gang → færdig, eller ikke relevant med begrundelse. En sektion kan markeres "data mangler" med en begrundelse.
+- C-felter vises kun, når en rapport for selskabet i året er sat til B+C.
+- Data låses, når selskabet indgår i en godkendt rapport.
 
 ## Teknik
 
