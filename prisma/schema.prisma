@@ -1,0 +1,268 @@
+// ESG-rapportering – datamodel (fase 1: fundament)
+// Hierarki: Organization (koncern/kunde) → Company (selskab, med parent) → Location
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Brugere og login ----------
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  sessions            Session[]
+  memberships         Membership[]
+  invitationsSent     Invitation[] @relation("InvitedBy")
+  auditLogs           AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Engangs-login-link sendt pr. mail
+model LoginToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  email     String
+  redirectTo String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+}
+
+// ---------- Organisation ----------
+
+/// En koncern/kunde. Al data er isoleret pr. organisation.
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  companies   Company[]
+  memberships Membership[]
+  invitations Invitation[]
+  periods     ReportingPeriod[]
+  auditLogs   AuditLog[]
+}
+
+enum LegalForm {
+  PMV       // Personligt ejet mindre virksomhed
+  ENKELTMAND
+  IS        // Interessentskab
+  APS
+  AS
+  KS
+  ANDET
+}
+
+/// Et selskab (CVR). parentId = null betyder øverste moderselskab.
+model Company {
+  id             String     @id @default(cuid())
+  organizationId String
+  parentId       String?
+  name           String
+  cvr            String
+  address        String?
+  legalForm      LegalForm?
+  naceCodes      String[]   @default([])
+  /// Standardvalg for om selskabet medtages i konsoliderede rapporter (kan ændres pr. rapport)
+  consolidate    Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  archivedAt     DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       Company?     @relation("CompanyTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children     Company[]    @relation("CompanyTree")
+  locations    Location[]
+  memberships  Membership[]
+  invitations  Invitation[]
+  reportsAsReporting Report[]        @relation("ReportingCompany")
+  reportLinks        ReportCompany[]
+
+  @@unique([organizationId, cvr])
+  @@index([parentId])
+}
+
+/// Lokation/facilitet som selskabet ejer, lejer eller driver/forvalter
+model Location {
+  id        String          @id @default(cuid())
+  companyId String
+  name      String          // fx Kontor, Lager, Industrianlæg
+  address   String
+  function  String?
+  control   LocationControl @default(EJER)
+  /// Geolokation (B1 pkt. 27e vi–vii), WGS84 decimalgrader
+  latitude  Float?
+  longitude Float?
+  /// Driftsperiode – tom slutdato betyder i drift
+  operationalFrom DateTime?
+  operationalTo   DateTime?
+  createdAt DateTime        @default(now())
+  archivedAt DateTime?
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+  invitations Invitation[]
+
+  @@index([companyId])
+}
+
+enum LocationControl {
+  EJER
+  LEJER
+  DRIVER // driver/forvalter
+}
+
+/// Rapporteringsår (følger regnskabsåret)
+model ReportingPeriod {
+  id             String   @id @default(cuid())
+  organizationId String
+  year           Int
+  startDate      DateTime
+  endDate        DateTime
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reports      Report[]
+
+  @@unique([organizationId, year])
+}
+
+// ---------- Rapportopsætning ----------
+// Data indsamles pr. selskab og rapporteringsår. En rapport er en "visning" over et udvalg af selskaber,
+// så samme data kan indgå i både en koncernrapport og fx en individuel rapport for et datterselskab.
+
+enum ReportModule {
+  BASIC                   // Basismodul (B1–B11)
+  BASIC_AND_COMPREHENSIVE // Basismodul + Udvidet Modul (B + C1–C9)
+}
+
+enum ReportBasis {
+  INDIVIDUAL   // kun det rapporterende selskab
+  CONSOLIDATED // rapporterende selskab + udvalgte datterselskaber
+}
+
+enum ReportStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+}
+
+model Report {
+  id                   String       @id @default(cuid())
+  periodId             String
+  name                 String
+  standardVersion      String       @default("VS (EU-Kommissionens henstilling 2025)")
+  module               ReportModule @default(BASIC)
+  basis                ReportBasis  @default(CONSOLIDATED)
+  /// Det rapporterende selskab (moderselskab ved konsolideret rapport)
+  reportingCompanyId   String
+  /// Undtagelser og udeladelser (B1) – struktureres pr. VS-punkt i fase 2
+  omissions            String?
+  status               ReportStatus @default(DRAFT)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  period           ReportingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  reportingCompany Company         @relation("ReportingCompany", fields: [reportingCompanyId], references: [id])
+  companies        ReportCompany[]
+
+  @@index([periodId])
+}
+
+/// Selskaber der er omfattet af rapporten
+model ReportCompany {
+  reportId  String
+  companyId String
+
+  report  Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@id([reportId, companyId])
+}
+
+// ---------- Adgang ----------
+
+enum Role {
+  ORG_ADMIN            // Koncernadmin: alt i organisationen
+  COMPANY_MANAGER      // Selskabsansvarlig: ét selskab + dets lokationer
+  LOCATION_CONTRIBUTOR // Lokationsbidragyder: én lokation
+  VIEWER               // Læser/revisor: alt read-only
+}
+
+/// Scope: ORG_ADMIN/VIEWER → kun organizationId. COMPANY_MANAGER → companyId. LOCATION_CONTRIBUTOR → locationId.
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           Role
+  companyId      String?
+  locationId     String?
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  location     Location?    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId, role, companyId, locationId])
+  @@index([organizationId])
+}
+
+model Invitation {
+  id             String    @id @default(cuid())
+  email          String
+  organizationId String
+  role           Role
+  companyId      String?
+  locationId     String?
+  tokenHash      String    @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company      Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  location     Location?    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+  action         String   // fx company.create
+  entityType     String
+  entityId       String
+  data           Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+}
