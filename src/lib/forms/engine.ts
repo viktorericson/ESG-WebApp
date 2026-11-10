@@ -11,6 +11,7 @@ import {
   type FieldDef,
   type FormContext,
   type ModuleDef,
+  type ModuleWarning,
   type SectionDef,
   type SectionMeta,
 } from "./types";
@@ -59,12 +60,20 @@ export function toNumber(v: unknown): number | null {
 
 const isDate = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
-function cleanCell(col: ColumnDef, v: unknown): unknown {
+/** Kolonnens valgmuligheder – statiske eller fra konteksten */
+export function columnOptions(col: ColumnDef, ctx?: FormContext) {
+  return col.dynamicOptions === "locations" ? (ctx?.locations ?? []) : (col.options ?? []);
+}
+
+function cleanCell(col: ColumnDef, v: unknown, ctx?: FormContext): unknown {
   switch (col.type) {
     case "number":
       return toNumber(v);
     case "select":
-      return typeof v === "string" && col.options?.some((o) => o.value === v) ? v : null;
+      if (typeof v !== "string") return null;
+      // Uden kontekst (fx i tests) accepteres dynamiske værdier, som serveren validerer med kontekst
+      if (col.dynamicOptions && !ctx) return v.slice(0, 40);
+      return columnOptions(col, ctx).some((o) => o.value === v) ? v : null;
     case "date":
       return isDate(v) ? v : null;
     default:
@@ -72,7 +81,7 @@ function cleanCell(col: ColumnDef, v: unknown): unknown {
   }
 }
 
-function cleanField(f: FieldDef, v: unknown): unknown {
+function cleanField(f: FieldDef, v: unknown, ctx?: FormContext): unknown {
   switch (f.type) {
     case "text":
       return str(v, 1000);
@@ -98,15 +107,18 @@ function cleanField(f: FieldDef, v: unknown): unknown {
       return v.slice(0, 500).map((row) => {
         const r = (row ?? {}) as Record<string, unknown>;
         const out: Record<string, unknown> = { _id: typeof r._id === "string" ? r._id.slice(0, 40) : crypto.randomUUID() };
-        for (const col of f.columns) out[col.key] = cleanCell(col, r[col.key]);
+        for (const col of f.columns) out[col.key] = cleanCell(col, r[col.key], ctx);
         return out;
       });
     }
   }
 }
 
-/** Fjerner ukendte nøgler og tvinger værdier til feltets type. Skjulte felters værdier bevares. */
-export function sanitizeAnswers(def: ModuleDef, input: Answers): Answers {
+/**
+ * Fjerner ukendte nøgler og tvinger værdier til feltets type. Skjulte felters værdier bevares.
+ * Med kontekst valideres dynamiske valgmuligheder (fx at en lokation hører til selskabet).
+ */
+export function sanitizeAnswers(def: ModuleDef, input: Answers, ctx?: FormContext): Answers {
   const out: Answers = {};
   const meta: Record<string, SectionMeta> = {};
   const evidence: Record<string, Evidence> = {};
@@ -115,7 +127,7 @@ export function sanitizeAnswers(def: ModuleDef, input: Answers): Answers {
 
   for (const s of def.sections) {
     for (const f of s.fields) {
-      if (f.key in input) out[f.key] = cleanField(f, input[f.key]);
+      if (f.key in input) out[f.key] = cleanField(f, input[f.key], ctx);
     }
     const m = inMeta[s.key];
     if (m?.missing) meta[s.key] = { missing: true, missingReason: str(m.missingReason, 2000) ?? undefined };
@@ -164,6 +176,8 @@ export type SectionProgress = {
 export type ModuleEvaluation = {
   sections: SectionProgress[];
   issues: FieldIssue[];
+  /** Ikke-blokerende advarsler fra modulets checks (kun for synlige sektioner) */
+  warnings: ModuleWarning[];
   required: number;
   filled: number;
   /** Kan markeres som færdig */
@@ -231,9 +245,12 @@ export function evaluateModule(def: ModuleDef, a: Answers, ctx: FormContext): Mo
   }
 
   const vis = sections.filter((s) => s.visible);
+  const visibleKeys = new Set(vis.map((s) => s.key));
+  const warnings = (def.checks?.(a, ctx) ?? []).filter((w) => visibleKeys.has(w.section));
   return {
     sections,
     issues,
+    warnings,
     required: vis.reduce((n, s) => n + (s.missingMarked ? 0 : s.required), 0),
     filled: vis.reduce((n, s) => n + (s.missingMarked ? 0 : s.filled), 0),
     complete: def.sections.length > 0 && sections.every((s) => s.done),
@@ -254,3 +271,11 @@ export function nextStatus(
 /** >10 ansatte: mange B-punkter er kun obligatoriske over denne grænse */
 export const over10 = (_a: Answers, ctx: FormContext) => ctx.employees === null || ctx.employees > 10;
 export const isYes = (key: string) => (a: Answers) => a[key] === "yes";
+
+/** Summerer en talkolonne i en tabel (tomme/ugyldige celler ignoreres) */
+export function sumColumn(a: Answers, tableKey: string, column: string, where?: (row: Record<string, unknown>) => boolean): number {
+  const rows = Array.isArray(a[tableKey]) ? (a[tableKey] as Record<string, unknown>[]) : [];
+  return rows.filter((r) => !where || where(r)).reduce((n, r) => n + (toNumber(r[column]) ?? 0), 0);
+}
+
+export const num = (a: Answers, key: string): number | null => toNumber(a[key]);

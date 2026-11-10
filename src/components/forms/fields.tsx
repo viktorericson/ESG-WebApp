@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 import { Input, Select, Textarea, cx } from "@/components/ui";
-import type { ColumnDef, FieldDef, Quantity } from "@/lib/forms/types";
+import { columnOptions } from "@/lib/forms/engine";
+import type { ColumnDef, FieldDef, FormContext, Quantity } from "@/lib/forms/types";
 
 /** Tal vises med dansk decimalkomma; under redigering gemmes den rå tekst */
 export function displayNumber(v: unknown): string {
@@ -60,9 +61,10 @@ type FieldProps = {
   error?: string;
   required: boolean;
   id: string;
+  ctx?: FormContext;
 };
 
-export function FieldControl({ field, value, onChange, error, required, id }: FieldProps) {
+export function FieldControl({ field, value, onChange, error, required, id, ctx }: FieldProps) {
   const invalid = error ? "border-red-400 focus:border-red-500 focus:ring-red-100" : "";
 
   const control = (() => {
@@ -146,12 +148,13 @@ export function FieldControl({ field, value, onChange, error, required, id }: Fi
         );
       }
       case "table":
-        return <TableControl columns={field.columns} rows={(value as Row[]) ?? []} onChange={onChange} addLabel={field.addLabel} />;
+        return <TableControl columns={field.columns} rows={(value as Row[]) ?? []} onChange={onChange} addLabel={field.addLabel} ctx={ctx} />;
     }
   })();
 
   return (
     <div>
+      {field.heading && <h3 className="-mx-5 mb-4 border-t border-neutral-100 bg-neutral-50/70 px-5 py-2 text-sm font-semibold text-neutral-900 first:mt-0">{field.heading}</h3>}
       <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3">
         <label id={`${id}-label`} htmlFor={field.type === "radio" || field.type === "yesno" || field.type === "table" ? undefined : id} className="text-sm font-medium text-neutral-800">
           {field.label}
@@ -169,7 +172,7 @@ export function FieldControl({ field, value, onChange, error, required, id }: Fi
 
 type Row = Record<string, unknown> & { _id: string };
 
-function TableControl({ columns, rows, onChange, addLabel }: { columns: ColumnDef[]; rows: Row[]; onChange: (v: Row[]) => void; addLabel?: string }) {
+function TableControl({ columns, rows, onChange, addLabel, ctx }: { columns: ColumnDef[]; rows: Row[]; onChange: (v: Row[]) => void; addLabel?: string; ctx?: FormContext }) {
   const update = (i: number, key: string, v: unknown) => onChange(rows.map((r, j) => (j === i ? { ...r, [key]: v } : r)));
   return (
     <div className="space-y-2">
@@ -195,7 +198,7 @@ function TableControl({ columns, rows, onChange, addLabel }: { columns: ColumnDe
                       {c.type === "select" ? (
                         <Select aria-label={c.label} value={(row[c.key] as string) ?? ""} onChange={(e) => update(i, c.key, e.target.value || null)} className="py-1.5">
                           <option value="">Vælg…</option>
-                          {c.options?.map((o) => (
+                          {columnOptions(c, ctx).map((o) => (
                             <option key={o.value} value={o.value}>
                               {o.label}
                             </option>

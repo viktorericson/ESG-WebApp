@@ -11,6 +11,8 @@ export type FormContext = {
   comprehensive: boolean;
   /** Antal ansatte fra B1 (headcount/FTE) – styrer krav for ≤10/>10 ansatte. null = ukendt */
   employees: number | null;
+  /** Selskabets aktive lokationer – valgmuligheder for kolonner med dynamicOptions: "locations" */
+  locations?: Option[];
 };
 
 export type Option = { value: string; label: string };
@@ -30,6 +32,8 @@ type BaseField = {
   /** "Sådan finder du data" – vises sammenfoldet */
   howTo?: string;
   placeholder?: string;
+  /** Underoverskrift der vises over feltet (grupperer felter i en sektion) */
+  heading?: string;
   required?: boolean | Condition;
   showIf?: Condition;
   /** Kun i Udvidet Modul (B+C) */
@@ -41,6 +45,8 @@ export type ColumnDef = {
   label: string;
   type: "text" | "number" | "select" | "date";
   options?: Option[];
+  /** Valgmuligheder hentes fra konteksten i stedet for options */
+  dynamicOptions?: "locations";
   unit?: string;
   required?: boolean;
   placeholder?: string;
@@ -77,9 +83,15 @@ export type ModuleDef = {
   title: string;
   vs: string[];
   description: string;
-  /** Tom liste = modulet er ikke bygget endnu */
+  /** Tom liste = modulet er ikke bygget endnu (medmindre stamdata er sat) */
   sections: SectionDef[];
+  /** Modulet dækkes af stamdata (vedligeholdes uden for årsindrapporteringen) */
+  stamdata?: boolean;
+  /** Plausibilitetstjek på tværs af felter. Advarer, men blokerer ikke færdiggørelse. */
+  checks?: (answers: Answers, ctx: FormContext) => ModuleWarning[];
 };
+
+export type ModuleWarning = { section: string; message: string };
 
 /** Værdi for quantity-felter */
 export type Quantity = { value: number | null; unit: string | null };

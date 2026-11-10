@@ -34,7 +34,7 @@ export async function saveModuleAnswers(input: Input & { answers: Answers }): Pr
   const err = errorFor(scope);
   if (err || !scope) return { ok: false, error: err! };
 
-  const answers = sanitizeAnswers(scope.def, input.answers ?? {});
+  const answers = sanitizeAnswers(scope.def, input.answers ?? {}, scope.ctx);
   const json = answers as Prisma.InputJsonObject;
   const existing = await db.moduleData.findUnique({
     where: { periodId_moduleKey_targetKey: { periodId: input.periodId, moduleKey: input.moduleKey, targetKey: scope.targetKey } },

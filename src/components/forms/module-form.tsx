@@ -59,7 +59,7 @@ export function ModuleForm({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflight = useRef<Promise<unknown> | null>(null);
 
-  const clean = useMemo(() => sanitizeAnswers(def, answers), [def, answers]);
+  const clean = useMemo(() => sanitizeAnswers(def, answers, ctx), [def, answers, ctx]);
   const ev = useMemo(() => evaluateModule(def, clean, ctx), [def, clean, ctx]);
   const issueFor = (section: string, field: string) => ev.issues.find((i) => i.section === section && i.field === field && i.row === undefined)?.message;
 
@@ -208,6 +208,13 @@ export function ModuleForm({
             </div>
 
             <fieldset disabled={readOnly} className="space-y-5 px-5 py-5">
+              {ev.warnings
+                .filter((w) => w.section === section.key)
+                .map((w) => (
+                  <p key={w.message} className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    ⚠ {w.message}
+                  </p>
+                ))}
               {section.fields.map((f) =>
                 fieldVisible(f, clean, ctx) ? (
                   <FieldControl
@@ -218,6 +225,7 @@ export function ModuleForm({
                     onChange={(v) => setField(f.key, v)}
                     error={issueFor(section.key, f.key) ?? ev.issues.find((i) => i.field === f.key && i.row !== undefined)?.message}
                     required={fieldRequired(f, clean, ctx)}
+                    ctx={ctx}
                   />
                 ) : null,
               )}

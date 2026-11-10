@@ -33,12 +33,17 @@ export async function loadModuleScope(orgId: string, access: Access, periodId: s
 
 /** B+C hvis mindst én rapport i året, der omfatter selskabet, er sat til Udvidet Modul */
 export async function formContext(periodId: string, companyId: string): Promise<FormContext> {
-  const [comprehensive, general] = await Promise.all([
+  const [comprehensive, general, locations] = await Promise.all([
     db.report.count({ where: { periodId, module: "BASIC_AND_COMPREHENSIVE", companies: { some: { companyId } } } }),
     db.moduleData.findUnique({ where: { periodId_moduleKey_targetKey: { periodId, moduleKey: "company.general", targetKey: `company:${companyId}` } } }),
+    db.location.findMany({ where: { companyId, archivedAt: null }, select: { id: true, name: true, address: true }, orderBy: { name: "asc" } }),
   ]);
   const employees = (general?.answers as Record<string, unknown> | undefined)?.employees;
-  return { comprehensive: comprehensive > 0, employees: typeof employees === "number" ? employees : null };
+  return {
+    comprehensive: comprehensive > 0,
+    employees: typeof employees === "number" ? employees : null,
+    locations: locations.map((l) => ({ value: l.id, label: `${l.name} – ${l.address}` })),
+  };
 }
 
 /** Data låses, når selskabet indgår i en godkendt rapport for året */

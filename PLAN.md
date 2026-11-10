@@ -193,11 +193,12 @@ Svarene ligger i JSONB pr. skema, valideret med zod. Beregningsmotoren kører p�
 | 1. Fundament ✅ | Repo, auth, koncern/selskab/lokation, roller, invitationer | Man kan oprette en koncern og invitere |
 | 1b. Rapportopsætning ✅ | Periode → "rapport" med B/B+C, individuel/konsolideret, omfattede selskaber. Geolokation og driftsperiode på lokationer | Rammen fra ModulOpdeling er på plads |
 | 2a. Skemamotor ✅ | Motor, autosave, status, uploads, datakilder, B1 + lokationsenergi som første moduler | Indrapportering virker end-to-end |
-| 2b–2d. Skemaer | De resterende B-felter i de 10 selskabsmoduler og 7 lokationsmoduler (afsnit 1b), inkl. politikregister og Scope 1 med kobling til lokation | Datterselskaber kan indrapportere Basismodulet |
+| 2b. Selskabsmoduler ✅ | B2/C2 politikregister, B7 cirkulær økonomi og materialer, B8/C5, B9, B10, B11/C8/C9 med plausibilitetstjek | Selskaberne kan indrapportere deres B-data |
+| 2c–2d. Lokationer og Scope 1 ✅ | Vand, affald, forurening, biodiversitet/vandstress samt Scope 1 med kobling til lokation (vises i lokationens energioverblik) | Hele Basismodulet kan indrapporteres |
 | 3. Beregninger | Faktorbibliotek, enhedsomregning, alle KPI'er i tabellen ovenfor, tests | Live nøgletal pr. selskab |
 | 4. Konsolidering | Koncerndashboard, statusoverblik, review og godkendelse, lås | Samlet koncernopgørelse |
 | 5. Eksport | PPTX fra skabelon, PDF, Excel | Færdig rapport |
-| 6. Udvidelser | C-felterne i modulerne (vises ved B+C), Scope 3-forløb, sammenligning med sidste år, import af gamle Jotform-svar | v2 |
+| 6. Udvidelser | C-modulerne menneskerettigheder (C6/C7), klimamål og -risici (C3/C4) og lokale indsatser, Scope 3-forløb, sammenligning med sidste år, import af gamle Jotform-svar | v2 |
 
 Første milepæl (fase 1–3 + simpel eksport) giver et end-to-end flow for ét selskab. Konsolidering bygges ovenpå.
 

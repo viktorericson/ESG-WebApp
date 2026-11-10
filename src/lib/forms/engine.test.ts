@@ -154,3 +154,29 @@ describe("modulregister", () => {
     }
   });
 });
+
+describe("checks", () => {
+  const withCheck: ModuleDef = {
+    ...def,
+    checks: (a, c) => (typeof a.turnover === "number" && c.employees !== null && a.turnover < c.employees ? [{ section: "a", message: "Lav omsætning" }, { section: "c1", message: "skjult" }] : []),
+  };
+
+  it("advarsler vises kun for synlige sektioner og blokerer ikke", () => {
+    const ev = evaluateModule(withCheck, { turnover: 1, hasCert: "no", el: { value: 1, unit: "kWh" } }, ctx);
+    expect(ev.warnings).toEqual([{ section: "a", message: "Lav omsætning" }]);
+    expect(ev.complete).toBe(true);
+  });
+});
+
+describe("dynamiske valgmuligheder", () => {
+  const dyn: ModuleDef = {
+    ...def,
+    sections: [{ key: "s", title: "S", fields: [{ key: "rows", label: "R", type: "table", columns: [{ key: "loc", label: "Lokation", type: "select", dynamicOptions: "locations" }] }] }],
+  };
+
+  it("validerer lokation mod konteksten", () => {
+    const withLocs = { ...ctx, locations: [{ value: "L1", label: "Lager" }] };
+    const out = sanitizeAnswers(dyn, { rows: [{ _id: "1", loc: "L1" }, { _id: "2", loc: "fremmed" }] }, withLocs);
+    expect((out.rows as Record<string, unknown>[]).map((r) => r.loc)).toEqual(["L1", null]);
+  });
+});

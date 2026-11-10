@@ -36,7 +36,9 @@ export function ModuleList({
               ))}
             </span>
             <span className="w-28 shrink-0 text-right">
-              {!built ? (
+              {m.stamdata ? (
+                <span className="text-xs text-neutral-500">Stamdata</span>
+              ) : !built ? (
                 <span className="text-xs text-neutral-400">Kommer snart</span>
               ) : cOnlyModule && !comprehensive ? (
                 <span className="text-xs text-neutral-400">Kun ved B+C</span>
@@ -54,7 +56,7 @@ export function ModuleList({
                 {inner}
               </Link>
             ) : (
-              <div className={cx(cls, "opacity-60")}>{inner}</div>
+              <div className={cx(cls, !m.stamdata && "opacity-60")}>{inner}</div>
             )}
           </li>
         );

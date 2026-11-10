@@ -2,7 +2,7 @@
 
 Webapp til ESG-indrapportering efter VSME. Datterselskaber og deres lokationer indrapporterer, og data samles til en konsolideret rapport for moderselskabet, der eksporteres til PowerPoint/PDF. Se [PLAN.md](PLAN.md) for den samlede plan.
 
-**Status: Fase 1, 1b og 2a er færdige.** Fase 2a er skemamotoren med de første moduler: B1 for selskaber og energi/scope 2 for lokationer. De omfatter login med magic link, koncernstruktur (koncern → selskaber → lokationer med geolokation og driftsperiode), roller og invitationer, aktivitetslog og rapportopsætning. Rapportopsætningen dækker rapporteringsår og rapporter med B eller B+C, individuel eller konsolideret afgrænsning, omfattede selskaber, udeladelser og godkendelsesstatus. Modulstrukturen er beskrevet i [ModulOpdeling.md](ModulOpdeling.md).
+**Status: Fase 1 og 2 er færdige.** Hele Basismodulet (B1–B11) kan indrapporteres. Det omfatter 9 selskabsmoduler (inkl. politikregister og Scope 1 med kobling til lokationer) og 5 lokationsmoduler (energi/scope 2, vand, affald, forurening og biodiversitet/vandstress) samt de relevante C-felter (C1, C2, C5, C8, C9). Tilbage er C-modulerne om menneskerettigheder (C6/C7), klimamål og -risici (C3/C4) og lokale indsatser, som hører til fase 6.
 
 ## Kom i gang
 
@@ -86,6 +86,7 @@ Samme definition bruges af formularen og af serverens validering. Et nyt modul t
 - Status: ikke startet → i gang → færdig, eller ikke relevant med begrundelse. En sektion kan markeres "data mangler" med en begrundelse.
 - C-felter vises kun, når en rapport for selskabet i året er sat til B+C.
 - Data låses, når selskabet indgår i en godkendt rapport.
+- Moduler kan have plausibilitetstjek (`checks`), der advarer uden at blokere. Fx sammenlignes antal ansatte i B8 med B1, og arbejdstimer pr. ansat tjekkes.
 
 ## Teknik
 
