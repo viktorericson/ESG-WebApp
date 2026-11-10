@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ActionForm, FieldError, SubmitButton } from "@/components/action-form";
 import { Card, CardHeader, EmptyState, Input, Label, PageHeader } from "@/components/ui";
 import { renameOrganization } from "@/lib/actions/org";
@@ -26,6 +27,10 @@ const ACTION_LABELS: Record<string, string> = {
   "report.status": "ændrede status på rapport",
   "report.delete": "slettede rapport",
   "module.status": "ændrede status på modul",
+  "factorSet.copy": "oprettede eget faktorsæt",
+  "factorSet.delete": "slettede faktorsæt",
+  "factor.update": "rettede emissionsfaktor",
+  "period.factorSet": "skiftede faktorsæt for rapporteringsår",
 };
 
 const timeFmt = new Intl.DateTimeFormat("da-DK", { dateStyle: "short", timeStyle: "short" });
@@ -46,7 +51,14 @@ export default async function SettingsPage({ params }: PageProps<"/org/[orgId]/s
     <>
       <PageHeader title="Indstillinger" />
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <Card className="self-start">
+        <div className="space-y-6 self-start">
+        <Card>
+          <CardHeader title="Emissionsfaktorer" description="Klimakompasset som standard – med mulighed for egne faktorsæt." />
+          <div className="px-5 py-4">
+            <Link href={`/org/${orgId}/settings/factors`} className="text-sm font-medium text-brand-700 hover:underline">Administrér faktorsæt →</Link>
+          </div>
+        </Card>
+        <Card>
           <CardHeader title="Koncern" />
           <ActionForm action={renameOrganization} className="space-y-4 p-5">
             <input type="hidden" name="orgId" value={orgId} />
@@ -58,6 +70,7 @@ export default async function SettingsPage({ params }: PageProps<"/org/[orgId]/s
             <SubmitButton>Gem</SubmitButton>
           </ActionForm>
         </Card>
+        </div>
         <Card>
           <CardHeader title="Aktivitetslog" description="De seneste 50 ændringer." />
           {log.length === 0 ? (

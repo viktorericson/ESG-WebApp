@@ -14,7 +14,6 @@ export const VEHICLE_TYPES = opts([
   "Personbil (diesel)",
   "Personbil (el)",
   "Personbil (hybrid, ikke plug-in)",
-  "Personbil (plug-in hybrid)",
   "Varebil (benzin)",
   "Varebil (diesel)",
   "Varebil (el)",
@@ -35,7 +34,7 @@ export const VEHICLE_TYPES = opts([
 
 export const STATIONARY_FUELS = opts([
   "Naturgas",
-  "Bygas",
+  "Ledningsgas",
   "Biogas",
   "Fyringsolie",
   "Fuelolie",
@@ -45,7 +44,6 @@ export const STATIONARY_FUELS = opts([
   "Propan",
   "Træpiller",
   "Træflis",
-  "Brænde",
   "Halm",
   "Andet",
 ]);
@@ -112,11 +110,11 @@ export const companyScope1: ModuleDef = {
           showIf: isYes("hasVehicles"),
           addLabel: "Tilføj køretøj/maskine",
           vs: ["B3.33"],
-          info: "Brændstof i liter giver den mest præcise beregning. Kilometer kan bruges, hvis der ikke findes brændstofdata. Beløb i kroner bruges kun som sidste udvej og markeres som estimat. El til elbiler, der lades på selskabets lokationer, indgår i lokationens elforbrug (scope 2).",
+          info: "Brændstof i liter giver den mest præcise beregning. Kilometer kan bruges, hvis der ikke findes brændstofdata. Biogas til lastbiler (CBG/LBG) angives i kg. El til elbiler, der lades på selskabets lokationer, indgår i lokationens elforbrug og skal ikke medtages her.",
           howTo: "Brændstofkort, tankkvitteringer, flådestyringssystem eller leasingselskabets opgørelser.",
           columns: [
             { key: "vehicleType", label: "Køretøj/drivmiddel", type: "select", required: true, options: VEHICLE_TYPES },
-            { key: "unit", label: "Enhed", type: "select", required: true, options: opts(["L", "km", "kWh", "kr."]) },
+            { key: "unit", label: "Enhed", type: "select", required: true, options: opts(["L", "km", "kWh", "kg"]) },
             { key: "amount", label: "Mængde", type: "number", required: true },
             { key: "count", label: "Antal", type: "number" },
             locationColumn,
@@ -146,10 +144,11 @@ export const companyScope1: ModuleDef = {
           addLabel: "Tilføj anlæg",
           vs: ["B3.33"],
           howTo: "Gas- og olieregninger, måleraflæsninger eller leverandørens årsopgørelse.",
+          info: "Vælg “Ledningsgas”, hvis I køber almindelig gas fra gasnettet og ikke kender biogasandelen – Klimakompassets faktor for ledningsgas indeholder nettets gennemsnitlige andel af biogas. Vælg “Naturgas” og angiv biogasandelen, hvis den er dokumenteret.",
           columns: [
             { key: "description", label: "Beskrivelse", type: "text", placeholder: "fx Gasfyr kontor" },
             { key: "fuel", label: "Brændsel", type: "select", required: true, options: STATIONARY_FUELS },
-            { key: "unit", label: "Enhed", type: "select", required: true, options: opts(["m3", "Nm3", "L", "kg", "ton", "kWh", "GJ"]) },
+            { key: "unit", label: "Enhed", type: "select", required: true, options: opts(["m3", "Nm3", "L", "ton"]) },
             { key: "amount", label: "Mængde", type: "number", required: true },
             { key: "biogasShare", label: "Andel biogas (%)", type: "number", placeholder: "Kun naturgas" },
             locationColumn,
@@ -211,9 +210,6 @@ export const companyScope1: ModuleDef = {
   checks: (a) => {
     const rows = Array.isArray(a.vehicles) ? (a.vehicles as Record<string, unknown>[]) : [];
     const w = [];
-    if (rows.some((r) => r.unit === "kr.")) {
-      w.push({ section: "mobile", message: "Køretøjer opgjort i kroner giver kun et groft estimat. Brug liter eller kilometer, hvis muligt." });
-    }
     if (rows.some((r) => String(r.vehicleType ?? "").includes("(el)") && r.unit === "L")) {
       w.push({ section: "mobile", message: "Elkøretøjer kan ikke opgøres i liter. Brug kWh eller km." });
     }

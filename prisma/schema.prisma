@@ -64,6 +64,7 @@ model Organization {
   invitations Invitation[]
   periods     ReportingPeriod[]
   auditLogs   AuditLog[]
+  factorSets  FactorSet[]
 }
 
 enum LegalForm {
@@ -148,6 +149,9 @@ model ReportingPeriod {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   reports      Report[]
   moduleData   ModuleData[]
+  /// Faktorsæt beregningerne for året bruger. Tom = standardsættet.
+  factorSetId  String?
+  factorSet    FactorSet?   @relation(fields: [factorSetId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, year])
 }
@@ -324,4 +328,53 @@ model Attachment {
   uploadedBy User?      @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([moduleDataId])
+}
+
+// ---------- Emissionsfaktorer (fase 3) ----------
+// Globale sæt (organizationId = null) importeres fra fx Klimakompasset.
+// En organisation kan oprette egne sæt (kopi af et globalt sæt) og rette enkelte faktorer.
+
+model FactorSet {
+  id             String   @id @default(cuid())
+  name           String
+  version        String
+  description    String?
+  sourceUrl      String?
+  isDefault      Boolean  @default(false)
+  organizationId String?
+  basedOnId      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  basedOn      FactorSet?        @relation("FactorSetCopy", fields: [basedOnId], references: [id], onDelete: SetNull)
+  copies       FactorSet[]       @relation("FactorSetCopy")
+  factors      EmissionFactor[]
+  periods      ReportingPeriod[]
+
+  @@index([organizationId])
+}
+
+/// kg CO2e pr. enhed, opdelt på scope. Nøglen følger Klimakompassets nøgleformat.
+model EmissionFactor {
+  id            String  @id @default(cuid())
+  setId         String
+  year          Int
+  key           String
+  mainCategory  String
+  category      String
+  parameter1    String?
+  parameter2    String?
+  unit          String
+  scope1        Float   @default(0)
+  scope2        Float   @default(0)
+  scope3        Float   @default(0)
+  outsideScopes Float   @default(0)
+  source        String?
+  /// Rettet af organisationen (kun i egne sæt)
+  customized    Boolean @default(false)
+
+  set FactorSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+
+  @@unique([setId, year, key])
+  @@index([setId, year, category])
 }

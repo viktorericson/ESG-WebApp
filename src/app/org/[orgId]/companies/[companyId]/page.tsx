@@ -15,6 +15,8 @@ import { ModuleList, PeriodSwitcher } from "@/components/module-list";
 import { modulesFor } from "@/lib/forms/registry";
 import { formContext, moduleStatuses } from "@/lib/module-data";
 import { getPeriods, pickPeriod } from "@/lib/periods";
+import { GhgTiles } from "@/components/results";
+import { calculateCompany } from "@/lib/calc/server";
 
 const dateFmt = new Intl.DateTimeFormat("da-DK", { dateStyle: "medium" });
 
@@ -33,6 +35,7 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
   const [statuses, dataCtx] = period
     ? await Promise.all([moduleStatuses(period.id, `company:${companyId}`), formContext(period.id, companyId)])
     : [new Map(), null];
+  const calc = canSeeData && period ? await calculateCompany(period.id, companyId) : null;
   const allCompanies = await db.company.findMany({ where: { organizationId: orgId, archivedAt: null }, select: { id: true, name: true, parentId: true }, orderBy: { name: "asc" } });
   const allowedParents = validParentIds(allCompanies, companyId);
   const parent = allCompanies.find((c) => c.id === company.parentId);
@@ -97,6 +100,18 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
                 <EmptyState>Der er ikke oprettet et rapporteringsår endnu. {access.canManageOrg ? "Opret det under Rapporter." : "Kontakt koncernadmin."}</EmptyState>
               )}
             </Card>
+          )}
+
+          {canSeeData && period && calc && (
+            <section className="space-y-3">
+              <div className="flex items-baseline justify-between">
+                <h2 className="text-base font-semibold">Nøgletal {period.year}</h2>
+                <Link href={`/org/${orgId}/companies/${companyId}/results?period=${period.id}`} className="text-sm text-brand-700 hover:underline">
+                  Se alle nøgletal →
+                </Link>
+              </div>
+              <GhgTiles r={calc.result} />
+            </section>
           )}
 
           {/* Lokationer */}

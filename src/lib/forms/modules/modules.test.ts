@@ -74,9 +74,9 @@ describe("scope 1 (B3)", () => {
     expect(evaluateModule(companyScope1, {}, ctx).complete).toBe(false);
   });
 
-  it("advarer om kroner og elbiler i liter", () => {
-    const a = { hasVehicles: "yes", vehicles: [{ _id: "1", vehicleType: "Personbil (el)", unit: "L", amount: 10 }, { _id: "2", vehicleType: "Varebil (diesel)", unit: "kr.", amount: 5000 }] };
-    expect(evaluateModule(companyScope1, a, ctx).warnings).toHaveLength(2);
+  it("advarer om elbiler i liter", () => {
+    const a = { hasVehicles: "yes", vehicles: [{ _id: "1", vehicleType: "Personbil (el)", unit: "L", amount: 10 }] };
+    expect(evaluateModule(companyScope1, a, ctx).warnings).toHaveLength(1);
   });
 });
 

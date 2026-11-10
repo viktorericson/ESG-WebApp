@@ -39,6 +39,9 @@ export function ActionForm({
       <PendingContext value={pending}>
       <form
         ref={ref}
+        // Fallback før hydrering (progressive enhancement). Efter hydrering håndteres indsendelsen i onSubmit,
+        // så React ikke nulstiller felterne ved valideringsfejl.
+        action={formAction}
         className={className}
         onSubmit={(e) => {
           e.preventDefault();
