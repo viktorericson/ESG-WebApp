@@ -1,37 +1,14 @@
 import Link from "next/link";
 import { ActionForm, FieldError, SubmitButton } from "@/components/action-form";
+import { LogoUpload } from "@/components/logo-upload";
 import { Card, CardHeader, EmptyState, Input, Label, PageHeader } from "@/components/ui";
 import { renameOrganization } from "@/lib/actions/org";
 import { deny, requireOrgAccess } from "@/lib/auth";
+import { ACTION_LABELS } from "@/lib/audit-labels";
 import { db } from "@/lib/db";
 
 export const metadata = { title: "Indstillinger" };
 
-const ACTION_LABELS: Record<string, string> = {
-  "organization.create": "oprettede koncernen",
-  "organization.rename": "omdøbte koncernen",
-  "company.create": "oprettede selskab",
-  "company.update": "opdaterede selskab",
-  "company.archive": "arkiverede selskab",
-  "location.create": "oprettede lokation",
-  "location.update": "opdaterede lokation",
-  "location.archive": "arkiverede lokation",
-  "period.create": "oprettede rapporteringsår",
-  "period.delete": "slettede rapporteringsår",
-  "invitation.create": "inviterede",
-  "invitation.revoke": "trak invitation tilbage",
-  "invitation.accept": "accepterede invitation",
-  "membership.remove": "fjernede adgang",
-  "report.create": "oprettede rapport",
-  "report.update": "opdaterede rapport",
-  "report.status": "ændrede status på rapport",
-  "report.delete": "slettede rapport",
-  "module.status": "ændrede status på modul",
-  "factorSet.copy": "oprettede eget faktorsæt",
-  "factorSet.delete": "slettede faktorsæt",
-  "factor.update": "rettede emissionsfaktor",
-  "period.factorSet": "skiftede faktorsæt for rapporteringsår",
-};
 
 const timeFmt = new Intl.DateTimeFormat("da-DK", { dateStyle: "short", timeStyle: "short" });
 
@@ -57,6 +34,10 @@ export default async function SettingsPage({ params }: PageProps<"/org/[orgId]/s
           <div className="px-5 py-4">
             <Link href={`/org/${orgId}/settings/factors`} className="text-sm font-medium text-brand-700 hover:underline">Administrér faktorsæt →</Link>
           </div>
+        </Card>
+        <Card>
+          <CardHeader title="Logo til rapporter" description="Bruges i PowerPoint- og PDF-eksporten." />
+          <LogoUpload orgId={orgId} version={organization.logoKey ? (organization.logoUpdatedAt?.toISOString() ?? organization.logoKey) : null} />
         </Card>
         <Card>
           <CardHeader title="Koncern" />

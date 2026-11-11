@@ -1,4 +1,5 @@
 import { FieldError } from "@/components/action-form";
+import { GeocodeButton } from "@/components/geocode-button";
 import { Input, Label, Select } from "@/components/ui";
 import { LOCATION_CONTROL_LABELS, locationControls } from "@/lib/validation";
 
@@ -47,8 +48,9 @@ export function LocationFields({ loc, idPrefix }: { loc?: Loc; idPrefix: string 
       <fieldset className="sm:col-span-2">
         <legend className="text-sm font-medium text-neutral-800">Geolokation (B1)</legend>
         <p className="mb-1 text-xs text-neutral-500">
-          Decimalgrader (WGS84). Højreklik på adressen i Google Maps eller brug målefunktionen på arealinformation.miljoeportal.dk for at aflæse koordinaterne.
+          Decimalgrader (WGS84). Hent dem ud fra adressen, eller aflæs dem selv ved at højreklikke på adressen i Google Maps eller bruge målefunktionen på arealinformation.miljoeportal.dk.
         </p>
+        <GeocodeButton />
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor={id("latitude")} className="text-xs font-normal text-neutral-600">Breddegrad</Label>

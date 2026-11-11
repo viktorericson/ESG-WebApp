@@ -1,5 +1,7 @@
 import "server-only";
 import { db } from "./db";
+import { scope3FactorOptions } from "./calc/server";
+import { highImpactSector } from "./nace";
 import { getModule } from "./forms/registry";
 import type { FormContext, ModuleDef } from "./forms/types";
 import type { Access } from "./permissions";
@@ -27,28 +29,49 @@ export async function loadModuleScope(orgId: string, access: Access, periodId: s
   if (!canView) return null;
   const canEditTarget = location ? access.canReportLocation(location) : access.managesCompany(company.id);
 
-  const [ctx, locked] = await Promise.all([formContext(period.id, company.id), isLocked(period.id, company.id)]);
-  return { def, period, company, location, ctx, locked, canEdit: canEditTarget && !locked, targetKey: targetKeyOf(target) };
+  const [ctx, lockReason] = await Promise.all([
+    formContext(period.id, company.id, { scope3Factors: def.key === "company.scope3" }),
+    lockReasonFor(period.id, company.id),
+  ]);
+  const locked = lockReason !== null;
+  return { def, period, company, location, ctx, locked, lockReason, canEdit: canEditTarget && !locked, targetKey: targetKeyOf(target) };
 }
 
 /** B+C hvis mindst én rapport i året, der omfatter selskabet, er sat til Udvidet Modul */
-export async function formContext(periodId: string, companyId: string): Promise<FormContext> {
-  const [comprehensive, general, locations] = await Promise.all([
+export async function formContext(periodId: string, companyId: string, opts: { scope3Factors?: boolean } = {}): Promise<FormContext> {
+  const [comprehensive, general, locations, company] = await Promise.all([
     db.report.count({ where: { periodId, module: "BASIC_AND_COMPREHENSIVE", companies: { some: { companyId } } } }),
     db.moduleData.findUnique({ where: { periodId_moduleKey_targetKey: { periodId, moduleKey: "company.general", targetKey: `company:${companyId}` } } }),
     db.location.findMany({ where: { companyId, archivedAt: null }, select: { id: true, name: true, address: true }, orderBy: { name: "asc" } }),
+    db.company.findUnique({ where: { id: companyId }, select: { naceCodes: true } }),
   ]);
   const employees = (general?.answers as Record<string, unknown> | undefined)?.employees;
   return {
     comprehensive: comprehensive > 0,
     employees: typeof employees === "number" ? employees : null,
     locations: locations.map((l) => ({ value: l.id, label: `${l.name} – ${l.address}` })),
+    highImpactSector: highImpactSector(company?.naceCodes ?? []),
+    ...(opts.scope3Factors ? { scope3Factors: await scope3FactorOptions(periodId) } : {}),
   };
 }
 
-/** Data låses, når selskabet indgår i en godkendt rapport for året */
+/**
+ * Data låses, når selskabet indgår i en godkendt rapport, eller når selskabets data for året
+ * er indsendt til gennemgang eller godkendt. Returnerer en forklaring, eller null hvis data er åbne.
+ */
+export async function lockReasonFor(periodId: string, companyId: string): Promise<string | null> {
+  const [approvedReports, submission] = await Promise.all([
+    db.report.count({ where: { periodId, status: "APPROVED", companies: { some: { companyId } } } }),
+    db.companySubmission.findUnique({ where: { periodId_companyId: { periodId, companyId } } }),
+  ]);
+  if (approvedReports > 0) return "Data er låst, fordi selskabet indgår i en godkendt rapport for året.";
+  if (submission?.status === "SUBMITTED") return "Data er indsendt til gennemgang og kan ikke ændres, før koncernadmin har godkendt dem eller sendt dem tilbage.";
+  if (submission?.status === "APPROVED") return "Data er godkendt af koncernadmin. Kontakt koncernadmin, hvis noget skal rettes.";
+  return null;
+}
+
 export async function isLocked(periodId: string, companyId: string) {
-  return (await db.report.count({ where: { periodId, status: "APPROVED", companies: { some: { companyId } } } })) > 0;
+  return (await lockReasonFor(periodId, companyId)) !== null;
 }
 
 export async function getModuleData(periodId: string, moduleKey: string, targetKey: string) {

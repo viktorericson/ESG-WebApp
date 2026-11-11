@@ -9,6 +9,7 @@ import { STATUS_LABELS, STATUS_TONE, type ModuleStatusValue } from "@/lib/forms/
 import { EVIDENCE_KEY, META_KEY, type Answers, type Evidence, type FormContext, type SectionMeta } from "@/lib/forms/types";
 import { EvidenceBlock, type AttachmentInfo } from "./evidence-block";
 import { FieldControl, VsChips } from "./fields";
+import { GeoSuggestions } from "./geo-suggestions";
 
 type Status = ModuleStatusValue;
 
@@ -99,6 +100,16 @@ export function ModuleForm({
   const setEvidence = (section: string, e: Evidence) =>
     update((a) => ({ ...a, [EVIDENCE_KEY]: { ...((a[EVIDENCE_KEY] as object) ?? {}), [section]: e } }));
 
+  /** Anvender et forslag: sætter felterne og noterer kilden under sektionens dokumentation (én gang). */
+  const applySuggestion = (fields: Answers, source?: { section: string; system: string }) =>
+    update((a) => {
+      const next = { ...a, ...fields };
+      if (!source) return next;
+      const ev = sectionEvidence(a, source.section);
+      if (ev.sources?.some((s) => s.system === source.system)) return next;
+      return { ...next, [EVIDENCE_KEY]: { ...((a[EVIDENCE_KEY] as object) ?? {}), [source.section]: { ...ev, sources: [...(ev.sources ?? []), { system: source.system }] } } };
+    });
+
   // Advar ved lukning med ugemte ændringer
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
@@ -186,6 +197,10 @@ export function ModuleForm({
       )}
 
       {intro}
+
+      {moduleKey === "location.biodiversity" && target.locationId && canEdit && (
+        <GeoSuggestions orgId={orgId} locationId={target.locationId} disabled={readOnly} onApply={applySuggestion} />
+      )}
 
       {def.sections.map((section) => {
         if (!sectionVisible(section, clean, ctx)) return null;

@@ -23,8 +23,8 @@ export async function createSession(userId: string): Promise<void> {
 export async function getSessionUserId(): Promise<string | null> {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
-  const session = await db.session.findUnique({ where: { tokenHash: hashToken(token) } });
-  if (!session || session.expiresAt < new Date()) return null;
+  const session = await db.session.findUnique({ where: { tokenHash: hashToken(token) }, include: { user: { select: { disabledAt: true } } } });
+  if (!session || session.expiresAt < new Date() || session.user.disabledAt) return null;
   return session.userId;
 }
 

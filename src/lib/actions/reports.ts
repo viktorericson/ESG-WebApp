@@ -68,6 +68,13 @@ export async function setReportStatus(_prev: ActionState, fd: FormData): Promise
   if (!access.canManageOrg) return NO_ACCESS;
   const status = str(fd, "status") as (typeof reportStatuses)[number];
   if (!reportStatuses.includes(status)) return { error: "Ugyldig status" };
+  if (status === "APPROVED") {
+    const report = await db.report.findFirst({ where: { id: str(fd, "reportId"), period: { organizationId: orgId } }, include: { companies: { include: { company: true } } } });
+    if (!report) return NO_ACCESS;
+    const approved = await db.companySubmission.findMany({ where: { periodId: report.periodId, status: "APPROVED", companyId: { in: report.companies.map((c) => c.companyId) } }, select: { companyId: true } });
+    const missing = report.companies.filter((c) => !approved.some((a) => a.companyId === c.companyId)).map((c) => c.company.name);
+    if (missing.length) return { error: `Rapporten kan først godkendes, når alle selskabers data er godkendt. Mangler: ${missing.join(", ")}.` };
+  }
   const { count } = await db.report.updateMany({ where: { id: str(fd, "reportId"), period: { organizationId: orgId } }, data: { status } });
   if (!count) return NO_ACCESS;
   await audit({ organizationId: orgId, userId: user.id, action: "report.status", entityType: "Report", entityId: str(fd, "reportId"), data: { status } });

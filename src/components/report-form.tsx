@@ -21,6 +21,7 @@ type Report = {
   basis: Basis;
   reportingCompanyId: string;
   omissions: string | null;
+  consolidatedTurnover?: number | null;
   companyIds: string[];
 };
 
@@ -153,6 +154,24 @@ export function ReportForm({
               })}
             </ul>
             <FieldError name="companyIds" />
+          </div>
+        )}
+
+        {basis === "CONSOLIDATED" && (
+          <div>
+            <Label htmlFor="consolidatedTurnover">Koncernens konsoliderede omsætning (valgfrit)</Label>
+            <div className="mt-1 flex max-w-72 items-stretch">
+              <Input
+                id="consolidatedTurnover"
+                name="consolidatedTurnover"
+                inputMode="decimal"
+                defaultValue={report.consolidatedTurnover ? String(report.consolidatedTurnover).replace(".", ",") : ""}
+                className="rounded-r-none"
+              />
+              <span className="flex items-center rounded-r-md border border-l-0 border-neutral-300 bg-neutral-50 px-3 text-sm text-neutral-500">kr.</span>
+            </div>
+            <p className="mt-1 text-xs text-neutral-500">Fra koncernregnskabet. Bruges til CO₂e-intensiteten, så koncerninterne salg ikke tælles med. Tom = summen af selskabernes omsætning.</p>
+            <FieldError name="consolidatedTurnover" />
           </div>
         )}
 

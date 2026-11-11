@@ -17,6 +17,8 @@ export type LocationEnergyResult = {
   steamCooling: EnergySplit;
   scope2LocationT: number;
   scope2MarketT: number;
+  /** Opstrømsudledning fra produktion og distribution af el og varme (scope 3, kategori 3) */
+  upstreamT: number;
   issues: CalcIssue[];
 };
 
@@ -29,6 +31,7 @@ export function calcLocationEnergy(a: Row, lookup: FactorLookup): LocationEnergy
     steamCooling: emptySplit(),
     scope2LocationT: 0,
     scope2MarketT: 0,
+    upstreamT: 0,
     issues,
   };
 
@@ -40,7 +43,10 @@ export function calcLocationEnergy(a: Row, lookup: FactorLookup): LocationEnergy
       r.electricity = { renewable: mwh * go, nonRenewable: mwh * (1 - go) };
       const loc = lookup(electricityKey("Miljødeklaration"));
       const mkt = lookup(electricityKey("Eldeklaration"));
-      if (loc) r.scope2LocationT += (mwh * loc.scope2) / 1000;
+      if (loc) {
+        r.scope2LocationT += (mwh * loc.scope2) / 1000;
+        r.upstreamT += (mwh * loc.scope3) / 1000;
+      }
       else issues.push({ level: "missing", message: "Faktor for el (Miljødeklaration) mangler i faktorsættet." });
       if (mkt) r.scope2MarketT += (mwh * (1 - go) * mkt.scope2) / 1000;
       else issues.push({ level: "missing", message: "Faktor for el (Eldeklaration) mangler i faktorsættet." });
@@ -58,7 +64,10 @@ export function calcLocationEnergy(a: Row, lookup: FactorLookup): LocationEnergy
       const share = Math.min(Math.max(n(a.districtHeatingRenewableShare) ?? 0, 0), 100) / 100;
       r.districtHeating = { renewable: mwh * share, nonRenewable: mwh * (1 - share) };
       const f = lookup(districtHeatingKey());
-      if (f) r.scope2LocationT += (mwh * f.scope2) / 1000;
+      if (f) {
+        r.scope2LocationT += (mwh * f.scope2) / 1000;
+        r.upstreamT += (mwh * f.scope3) / 1000;
+      }
       else issues.push({ level: "missing", message: "Faktor for fjernvarme mangler i faktorsættet." });
       const supplier = n(a.districtHeatingFactor);
       r.scope2MarketT += (mwh * (supplier ?? f?.scope2 ?? 0)) / 1000;

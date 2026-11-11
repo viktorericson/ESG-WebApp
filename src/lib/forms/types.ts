@@ -13,6 +13,10 @@ export type FormContext = {
   employees: number | null;
   /** Selskabets aktive lokationer – valgmuligheder for kolonner med dynamicOptions: "locations" */
   locations?: Option[];
+  /** Selskabet er i en sektor med stor klimaindvirkning (NACE A–H, fast ejendom). null = ukendt */
+  highImpactSector?: boolean | null;
+  /** Klimakompassets scope 3-faktorer for året – kun indlæst for Scope 3-modulet */
+  scope3Factors?: Option[];
 };
 
 export type Option = { value: string; label: string };
@@ -46,7 +50,7 @@ export type ColumnDef = {
   type: "text" | "number" | "select" | "date";
   options?: Option[];
   /** Valgmuligheder hentes fra konteksten i stedet for options */
-  dynamicOptions?: "locations";
+  dynamicOptions?: "locations" | "scope3Factors";
   unit?: string;
   required?: boolean;
   placeholder?: string;

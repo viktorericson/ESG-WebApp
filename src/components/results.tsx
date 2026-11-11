@@ -1,6 +1,17 @@
 import type { ReactNode } from "react";
 import { Card, CardHeader, cx } from "@/components/ui";
 import type { CompanyResult } from "@/lib/calc/company";
+import type { GroupResult } from "@/lib/calc/consolidate";
+
+/** Fælles visning for et selskab eller en konsolideret koncern */
+export type ResultView = Pick<CompanyResult, "energy" | "ghg" | "water" | "waste" | "workforce" | "health" | "pay" | "c5" | "issues" | "scope3"> & {
+  scope1Lines: CompanyResult["scope1"]["lines"];
+  locations?: CompanyResult["locations"];
+};
+
+export const viewOfCompany = (r: CompanyResult): ResultView => ({ ...r, scope1Lines: r.scope1.lines });
+export const viewOfGroup = (g: GroupResult): ResultView => ({ ...g, scope1Lines: g.scope1Lines });
+import { categoryLabel } from "@/lib/calc/scope3";
 import { totalOf, type EnergySplit } from "@/lib/calc/types";
 
 const nf = (digits: number) => new Intl.NumberFormat("da-DK", { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -22,7 +33,7 @@ export function StatTile({ label, value, unit, hint }: { label: string; value: s
   );
 }
 
-export function GhgTiles({ r }: { r: CompanyResult }) {
+export function GhgTiles({ r }: { r: Pick<CompanyResult, "ghg"> }) {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       <StatTile label="Scope 1" value={fmt(r.ghg.scope1T, 2)} unit="t CO₂e" />
@@ -75,10 +86,75 @@ function Table({ head, rows, foot }: { head: ReactNode[]; rows: ReactNode[][]; f
 
 const splitRow = (label: string, s: EnergySplit) => [label, fmt(s.renewable), fmt(s.nonRenewable), fmt(totalOf(s))];
 
-export function CompanyResults({ r, factorLabel }: { r: CompanyResult; factorLabel: string }) {
+type Previous = { year: number; r: ResultView } | null | undefined;
+
+/** Nøgletal for i år mod året før. Ændringer over ±50 % markeres som et plausibilitetstjek. */
+export function YearComparison({ r, year, previous }: { r: ResultView; year: number; previous: NonNullable<Previous> }) {
+  const p = previous.r;
+  const rows: [string, number | null, number | null, number, string?][] = [
+    ["Scope 1 (t CO₂e)", p.ghg.scope1T, r.ghg.scope1T, 2],
+    ["Scope 2 lokationsbaseret (t CO₂e)", p.ghg.scope2LocationT, r.ghg.scope2LocationT, 2],
+    ["Scope 1 + 2 (t CO₂e)", p.ghg.totalLocationT, r.ghg.totalLocationT, 2],
+    ["Scope 3 (t CO₂e)", p.ghg.scope3T, r.ghg.scope3T, 2],
+    ["CO₂e-intensitet (t/mio. kr.)", p.ghg.intensityPerMDKK, r.ghg.intensityPerMDKK, 2],
+    ["Energiforbrug (MWh)", totalOf(p.energy.total), totalOf(r.energy.total), 1],
+    ["Vandindtag (m³)", p.water.intakeM3, r.water.intakeM3, 0],
+    ["Affald (t)", p.waste.totalT, r.waste.totalT, 2],
+    ["Ansatte", p.workforce.total, r.workforce.total, 0],
+    ["Ulykkesfrekvens", p.health.accidentRate, r.health.accidentRate, 1],
+  ];
+  return (
+    <Card>
+      <CardHeader title={`Sammenligning med ${previous.year}`} description="Store ændringer (over ±50 %) er markeret, så de kan tjekkes for tastefejl eller ændret opgørelse." />
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="border-b border-neutral-200 text-left text-xs text-neutral-500">
+            <tr>
+              <th className="px-5 py-2 font-medium" />
+              <th className="px-5 py-2 text-right font-medium">{previous.year}</th>
+              <th className="px-5 py-2 text-right font-medium">{year}</th>
+              <th className="px-5 py-2 text-right font-medium">Ændring</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(([label, before, now, digits]) => {
+              const change = before !== null && now !== null && before !== 0 ? ((now - before) / Math.abs(before)) * 100 : null;
+              const big = change !== null && Math.abs(change) > 50;
+              return (
+                <tr key={label} className="border-b border-neutral-100">
+                  <td className="px-5 py-2">{label}</td>
+                  <td className="px-5 py-2 text-right tabular-nums text-neutral-500">{fmt(before, digits)}</td>
+                  <td className="px-5 py-2 text-right tabular-nums">{fmt(now, digits)}</td>
+                  <td className={cx("px-5 py-2 text-right tabular-nums", big ? "font-medium text-amber-700" : change !== null && change < 0 ? "text-brand-700" : "text-neutral-600")}>
+                    {change === null ? "–" : `${change > 0 ? "+" : ""}${fmt(change, 0)} %`}
+                    {big && <span className="ml-1" title="Over ±50 % – tjek tallet">⚠</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+export function CompanyResults({
+  r,
+  factorLabel,
+  breakdown,
+  year,
+  previous,
+}: {
+  r: ResultView;
+  factorLabel: string;
+  breakdown?: ReactNode;
+  year?: number;
+  previous?: Previous;
+}) {
   const sortedEntries = (o: Record<string, number>) => Object.entries(o).sort((a, b) => b[1] - a[1]);
   const scope1ByCategory = Object.entries(
-    r.scope1.lines.reduce<Record<string, number>>((acc, l) => ({ ...acc, [l.category]: (acc[l.category] ?? 0) + l.tCO2e }), {}),
+    r.scope1Lines.reduce<Record<string, number>>((acc, l) => ({ ...acc, [l.category]: (acc[l.category] ?? 0) + l.tCO2e }), {}),
   );
 
   return (
@@ -98,6 +174,8 @@ export function CompanyResults({ r, factorLabel }: { r: CompanyResult; factorLab
           </ul>
         </Card>
       )}
+
+      {previous && year !== undefined && <YearComparison r={r} year={year} previous={previous} />}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -121,14 +199,31 @@ export function CompanyResults({ r, factorLabel }: { r: CompanyResult; factorLab
               ...scope1ByCategory.map(([c, t]) => [<span key={c} className="pl-4 text-neutral-500">{c}</span>, fmt(t, 2)]),
               ["Scope 2 (lokationsbaseret)", fmt(r.ghg.scope2LocationT, 2)],
               ["Scope 2 (markedsbaseret)", fmt(r.ghg.scope2MarketT, 2)],
+              ...(r.scope3.included
+                ? [
+                    ["Scope 3 (værdikæden)", fmt(r.scope3.totalT, 2)],
+                    ...Object.entries(r.scope3.byCategory)
+                      .sort((a, b) => Number(a[0]) - Number(b[0]))
+                      .map(([c, t]) => [<span key={`s3-${c}`} className="pl-4 text-neutral-500">{categoryLabel(Number(c))}</span>, fmt(t, 2)]),
+                  ]
+                : []),
               ["Biogen CO₂ (udenfor scopes)", fmt(r.ghg.outsideScopesT, 2)],
             ]}
             foot={["Scope 1 + 2 (lokationsbaseret)", fmt(r.ghg.totalLocationT, 2)]}
           />
+          {r.scope3.included ? (
+            <p className="px-5 py-3 text-xs text-neutral-500">
+              Scope 1 + 2 + 3: {fmt(r.ghg.totalLocationT + r.scope3.totalT, 2)} t CO₂e. Scope 3 er frivilligt og omfatter kun de registrerede kategorier.
+            </p>
+          ) : (
+            <p className="px-5 py-3 text-xs text-neutral-500">Scope 3 er ikke opgjort (selskabsmodul 11).</p>
+          )}
         </Card>
       </div>
 
-      {r.locations.length > 0 && (
+      {breakdown}
+
+      {r.locations && r.locations.length > 0 && (
         <Card>
           <CardHeader title="Pr. lokation" />
           <Table

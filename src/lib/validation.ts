@@ -131,6 +131,7 @@ export const reportSchema = z.object({
   basis: z.enum(reportBases),
   reportingCompanyId: z.string().min(1, "Vælg det rapporterende selskab"),
   omissions: optionalText,
+  consolidatedTurnover: optionalNumber(0, 1e15, "Angiv omsætningen i kr. som et positivt tal"),
 });
 
 export const roles = ["ORG_ADMIN", "COMPANY_MANAGER", "LOCATION_CONTRIBUTOR", "VIEWER"] as const;

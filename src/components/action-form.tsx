@@ -46,7 +46,9 @@ export function ActionForm({
         onSubmit={(e) => {
           e.preventDefault();
           if (confirm && !window.confirm(confirm)) return;
-          const fd = new FormData(e.currentTarget);
+          // Medtag den knap, der blev trykket på (name/value), fx "decision"
+          const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+          const fd = new FormData(e.currentTarget, submitter);
           startTransition(() => formAction(fd));
         }}
       >

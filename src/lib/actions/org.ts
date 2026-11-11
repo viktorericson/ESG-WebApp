@@ -346,6 +346,7 @@ export async function acceptInvitation(_prev: ActionState, fd: FormData): Promis
     create: { email: inv.email, name },
     update: name ? { name } : {},
   });
+  if (user.disabledAt) return { error: "Din adgang er spærret. Kontakt den, der administrerer platformen." };
   const scope = { userId: user.id, organizationId: inv.organizationId, role: inv.role, companyId: inv.companyId, locationId: inv.locationId };
   const exists = await db.membership.findFirst({ where: scope });
   if (!exists) await db.membership.create({ data: scope });

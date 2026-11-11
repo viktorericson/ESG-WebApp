@@ -21,10 +21,10 @@ export async function requestLoginLink(_prev: ActionState, formData: FormData): 
 
   const generic = { ok: `Hvis ${email} har adgang, er der sendt et login-link. Linket virker i ${LOGIN_TOKEN_MINUTES} minutter.` };
 
-  if (!env.allowSignup) {
-    const known = await db.user.findUnique({ where: { email } });
-    if (!known) return generic; // afslører ikke om adressen findes
-  }
+  const known = await db.user.findUnique({ where: { email } });
+  // Afslører ikke, om adressen findes eller er spærret
+  if (!known && !env.allowSignup) return generic;
+  if (known?.disabledAt) return generic;
 
   const token = generateToken();
   await db.loginToken.create({
@@ -57,7 +57,9 @@ export async function verifyLogin(_prev: ActionState, formData: FormData): Promi
     return { error: "Linket er ugyldigt eller udløbet. Bed om et nyt login-link." };
   }
   await db.loginToken.update({ where: { id: record.id }, data: { usedAt: new Date() } });
-  const user = await db.user.upsert({ where: { email: record.email }, create: { email: record.email }, update: {} });
+  const user = await db.user.upsert({ where: { email: record.email }, create: { email: record.email, lastLoginAt: new Date() }, update: {} });
+  if (user.disabledAt) return { error: "Din adgang er spærret. Kontakt den, der administrerer platformen." };
+  await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await createSession(user.id);
   redirect(record.redirectTo ?? "/");
 }

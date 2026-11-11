@@ -1,4 +1,5 @@
 import { ActionForm, FieldError, SubmitButton } from "@/components/action-form";
+import { CvrField } from "@/components/cvr-field";
 import { Input, Label, Select } from "@/components/ui";
 import type { ActionState } from "@/lib/validation";
 import { LEGAL_FORM_LABELS, legalForms } from "@/lib/validation";
@@ -39,11 +40,7 @@ export function CompanyForm({
           <Input id="name" name="name" required defaultValue={company?.name} className="mt-1" />
           <FieldError name="name" />
         </div>
-        <div>
-          <Label htmlFor="cvr">CVR-nummer</Label>
-          <Input id="cvr" name="cvr" required inputMode="numeric" defaultValue={company?.cvr} className="mt-1" />
-          <FieldError name="cvr" />
-        </div>
+        <CvrField orgId={orgId} defaultValue={company?.cvr} />
         <div className="sm:col-span-2">
           <Label htmlFor="address">Adresse</Label>
           <Input id="address" name="address" defaultValue={company?.address ?? ""} className="mt-1" />
@@ -62,7 +59,7 @@ export function CompanyForm({
         <div>
           <Label htmlFor="naceCodes">NACE-kode(r)</Label>
           <Input id="naceCodes" name="naceCodes" defaultValue={company?.naceCodes.join(", ")} placeholder="fx 62.01, 70.22" className="mt-1" />
-          <p className="mt-1 text-xs text-neutral-500">Kommasepareret. Findes på datacvr.virk.dk under “Branchekode”.</p>
+          <p className="mt-1 text-xs text-neutral-500">Kommasepareret. Hovedbranchen hentes fra CVR; bibrancher findes på datacvr.virk.dk.</p>
         </div>
         {canEditStructure ? (
           <>

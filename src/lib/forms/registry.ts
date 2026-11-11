@@ -5,13 +5,17 @@
 import { companyGeneral } from "./modules/company-general";
 import { companyGovernance } from "./modules/company-governance";
 import { companyHealth } from "./modules/company-health";
+import { companyHumanRights } from "./modules/company-human-rights";
 import { companyMaterials } from "./modules/company-materials";
 import { companyPay } from "./modules/company-pay";
 import { companyPolicies } from "./modules/company-policies";
 import { companyScope1 } from "./modules/company-scope1";
 import { companyWorkforce } from "./modules/company-workforce";
 import { locationBiodiversity } from "./modules/location-biodiversity";
+import { companyClimate } from "./modules/company-climate";
+import { companyScope3 } from "./modules/company-scope3";
 import { locationEnergy } from "./modules/location-energy";
+import { locationLocal } from "./modules/location-local";
 import { locationPollution } from "./modules/location-pollution";
 import { locationWaste } from "./modules/location-waste";
 import { locationWater } from "./modules/location-water";
@@ -34,11 +38,12 @@ export const MODULES: ModuleDef[] = [
   companyWorkforce,
   companyHealth,
   companyPay,
-  stub("company", 6, "humanRights", "Menneskerettigheder", ["C6", "C7"], "Adfærdskodeks, klagemekanisme og hændelser. Kun ved Udvidet Modul."),
+  companyHumanRights,
   companyGovernance,
   companyScope1,
   companyMaterials,
-  stub("company", 10, "climate", "Klimamål og klimarisici", ["C3", "C4"], "Reduktionsmål og samlet vurdering af klimarisici. Kun ved Udvidet Modul."),
+  companyClimate,
+  companyScope3,
   // Lokationsblok
   { ...stub("location", 1, "general", "Generelle lokationsoplysninger", ["B1"], "Navn, adresse, geolokation og driftsperiode – vedligeholdes under lokationens stamdata."), stamdata: true },
   locationEnergy,
@@ -46,7 +51,7 @@ export const MODULES: ModuleDef[] = [
   locationWaste,
   locationPollution,
   locationBiodiversity,
-  stub("location", 7, "local", "Lokale indsatser og klimarisici", ["B2", "C2", "C3", "C4"], "Lokale initiativer og klimafarer."),
+  locationLocal,
 ];
 
 export function getModule(key: string): ModuleDef | undefined {

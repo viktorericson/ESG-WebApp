@@ -4,6 +4,7 @@
  */
 import { calcLocationEnergy, calcWaste, calcWater, type LocationEnergyResult, type WasteResult, type WaterResult } from "./location";
 import { calcScope1, type Scope1Result } from "./scope1";
+import { calcScope3, type Scope3Result } from "./scope3";
 import { addSplit, emptySplit, totalOf, type CalcIssue, type EnergySplit, type FactorLookup } from "./types";
 
 type Row = Record<string, unknown>;
@@ -21,7 +22,7 @@ export type LocationInput = {
 };
 
 export type CompanyInput = {
-  modules: Partial<Record<"general" | "workforce" | "health" | "pay" | "governance" | "materials" | "scope1", Answers>>;
+  modules: Partial<Record<"general" | "workforce" | "health" | "pay" | "governance" | "materials" | "scope1" | "scope3", Answers>>;
   locations: LocationInput[];
 };
 
@@ -37,8 +38,9 @@ export type LocationResult = {
 
 export type CompanyResult = {
   energy: { electricity: EnergySplit; fuels: EnergySplit; other: EnergySplit; total: EnergySplit };
-  ghg: { scope1T: number; scope2LocationT: number; scope2MarketT: number; totalLocationT: number; totalMarketT: number; outsideScopesT: number; intensityPerMDKK: number | null };
+  ghg: { scope1T: number; scope2LocationT: number; scope2MarketT: number; totalLocationT: number; totalMarketT: number; outsideScopesT: number; intensityPerMDKK: number | null; scope3T: number | null };
   scope1: Scope1Result;
+  scope3: Scope3Result;
   water: { intakeM3: number; consumptionM3: number | null; consumptionStressM3: number | null };
   waste: WasteResult & { totalT: number; recyclingRate: number | null };
   workforce: { unit: string | null; total: number; byContract: Record<string, number>; byGender: Record<string, number>; byCountry: Record<string, number> };
@@ -48,7 +50,29 @@ export type CompanyResult = {
   governance: { convictions: number; fines: number; boardRatio: number | null };
   materials: { material: string; unit: string; amount: number }[];
   locations: LocationResult[];
+  /** Rådata bag raterne – summeres ved konsolidering, hvorefter raterne genberegnes */
+  raw: RawFigures;
   issues: CalcIssue[];
+};
+
+export type RawFigures = {
+  turnover: number | null;
+  employees: number | null;
+  hoursMen: number;
+  hoursWomen: number;
+  /** Kun når lønforskellen skal oplyses */
+  grossPayMen: number | null;
+  grossPayWomen: number | null;
+  coveredByAgreement: number | null;
+  trainingMen: number | null;
+  trainingWomen: number | null;
+  leavers: number | null;
+  employeesStart: number | null;
+  employeesEnd: number | null;
+  managementWomen: number | null;
+  managementMen: number | null;
+  boardWomen: number | null;
+  boardMen: number | null;
 };
 
 function pivot(rows: Row[], key: string): Record<string, number> {
@@ -93,6 +117,11 @@ export function calcCompany(input: CompanyInput, lookup: FactorLookup): CompanyR
   const scope2MarketT = locations.reduce((s, l) => s + l.energy.scope2MarketT, 0) + scope1.scope2T;
   const turnover = n(m.general?.turnover);
   const totalLocationT = scope1.tCO2e + scope2LocationT;
+
+  // Scope 3 (frivilligt) – kategori 3 kan beregnes fra de samme faktorer som scope 1 og 2
+  const upstreamT = scope1.upstreamT + locations.reduce((s, l) => s + l.energy.upstreamT, 0);
+  const scope3 = calcScope3(m.scope3, lookup, upstreamT);
+  issues.push(...scope3.issues);
   if (turnover === null) issues.push({ level: "info", message: "CO₂e-intensiteten kræver omsætningen i modul 1." });
 
   // Vand (B6)
@@ -143,8 +172,10 @@ export function calcCompany(input: CompanyInput, lookup: FactorLookup): CompanyR
       totalMarketT: scope1.tCO2e + scope2MarketT,
       outsideScopesT: scope1.outsideT,
       intensityPerMDKK: turnover ? totalLocationT / (turnover / 1_000_000) : null,
+      scope3T: scope3.included ? scope3.totalT : null,
     },
     scope1,
+    scope3,
     water,
     waste: { ...waste, totalT: wasteTotal, recyclingRate: wasteTotal > 0 ? waste.recycledT / wasteTotal : null },
     workforce: { unit: (m.workforce?.unit as string) ?? null, total: workforceTotal, byContract: pivot(wf, "contract"), byGender, byCountry: pivot(wf, "country") },
@@ -175,6 +206,24 @@ export function calcCompany(input: CompanyInput, lookup: FactorLookup): CompanyR
         ? (m.materials!.materials as Row[]).filter((r) => n(r.amount) !== null).map((r) => ({ material: String(r.material ?? "–"), unit: String(r.unit ?? ""), amount: r.amount as number }))
         : [],
     locations,
+    raw: {
+      turnover,
+      employees,
+      hoursMen: n(m.pay?.hoursMen) ?? 0,
+      hoursWomen: n(m.pay?.hoursWomen) ?? 0,
+      grossPayMen: m.pay?.payGapRequired === "yes" ? n(m.pay?.grossPayMen) : null,
+      grossPayWomen: m.pay?.payGapRequired === "yes" ? n(m.pay?.grossPayWomen) : null,
+      coveredByAgreement: n(m.pay?.coveredByAgreement),
+      trainingMen: trainingM,
+      trainingWomen: trainingF,
+      leavers: n(m.workforce?.leavers),
+      employeesStart: start,
+      employeesEnd: end,
+      managementWomen: n(m.workforce?.managementWomen),
+      managementMen: n(m.workforce?.managementMen),
+      boardWomen: m.governance?.hasBoard === "yes" ? n(m.governance?.boardWomen) : null,
+      boardMen: m.governance?.hasBoard === "yes" ? n(m.governance?.boardMen) : null,
+    },
     issues,
   };
 }

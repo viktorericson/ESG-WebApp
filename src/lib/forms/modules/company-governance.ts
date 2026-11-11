@@ -30,7 +30,7 @@ export const companyGovernance: ModuleDef = {
       fields: [
         {
           key: "activeInSectors",
-          label: "Har selskabet aktiviteter inden for kontroversielle våben, tobak, fossile brændsler eller kemikalieproduktion?",
+          label: "Har selskabet aktiviteter inden for forbudt våbenindustri, tobak, fossile brændstoffer eller fremstilling af kemikalier?",
           type: "yesno",
           required: true,
           vs: ["C8.63"],
@@ -49,12 +49,12 @@ export const companyGovernance: ModuleDef = {
               type: "select",
               required: true,
               options: [
-                { value: "WEAPONS", label: "Kontroversielle våben" },
+                { value: "WEAPONS", label: "Forbudt våbenindustri (personelminer, klyngeammunition, kemiske og biologiske våben)" },
                 { value: "TOBACCO", label: "Dyrkning og produktion af tobak" },
-                { value: "COAL", label: "Fossile brændsler – kul" },
-                { value: "OIL", label: "Fossile brændsler – olie" },
-                { value: "GAS", label: "Fossile brændsler – gas" },
-                { value: "CHEMICALS", label: "Produktion af kemikalier" },
+                { value: "COAL", label: "Fossile brændstoffer – kul" },
+                { value: "OIL", label: "Fossile brændstoffer – olie" },
+                { value: "GAS", label: "Fossile brændstoffer – gas" },
+                { value: "CHEMICALS", label: "Fremstilling af kemikalier (NACE 20.2)" },
               ],
             },
             { key: "revenue", label: "Omsætning (kr.)", type: "number", required: true },

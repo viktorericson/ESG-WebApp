@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { PeriodSwitcher } from "@/components/module-list";
-import { CompanyResults } from "@/components/results";
+import { CompanyResults, viewOfCompany } from "@/components/results";
 import { EmptyState, Card, PageHeader } from "@/components/ui";
 import { deny, requireOrgAccess } from "@/lib/auth";
-import { calculateCompany } from "@/lib/calc/server";
+import { calculateCompany, calculateCompanyPrevious } from "@/lib/calc/server";
 import { db } from "@/lib/db";
 import { getPeriods, pickPeriod } from "@/lib/periods";
 
@@ -19,7 +19,7 @@ export default async function CompanyResultsPage({ params, searchParams }: PageP
   const periods = await getPeriods(orgId);
   const period = pickPeriod(periods, periodParam);
   const base = `/org/${orgId}/companies/${companyId}`;
-  const calc = period ? await calculateCompany(period.id, companyId) : null;
+  const [calc, previous] = period ? await Promise.all([calculateCompany(period.id, companyId), calculateCompanyPrevious(period.id, companyId)]) : [null, null];
 
   return (
     <>
@@ -33,7 +33,9 @@ export default async function CompanyResultsPage({ params, searchParams }: PageP
       />
       {calc ? (
         <CompanyResults
-          r={calc.result}
+          r={viewOfCompany(calc.result)}
+          year={period?.year}
+          previous={previous ? { year: previous.year, r: viewOfCompany(previous.calc.result) } : null}
           factorLabel={
             calc.factorSet
               ? `Emissionsfaktorer: ${calc.factorSet.name} ${calc.factorSet.version}, faktorår ${calc.factorYear}. GWP: IPCC AR6.`

@@ -66,7 +66,7 @@ export async function ModulePage({
         initialAttachments={(data?.attachments ?? []).map((a) => ({ id: a.id, sectionKey: a.sectionKey, filename: a.filename, size: a.size }))}
         ctx={scope.ctx}
         canEdit={scope.canEdit}
-        lockedReason={scope.locked ? "Data er låst, fordi selskabet indgår i en godkendt rapport for året." : undefined}
+        lockedReason={scope.lockReason ?? undefined}
         intro={intro}
       />
     </>

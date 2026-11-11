@@ -141,8 +141,8 @@ describe("nextStatus", () => {
 
 
 describe("modulregister", () => {
-  it("har 10 selskabsmoduler og 7 lokationsmoduler med unikke nøgler", () => {
-    expect(MODULES.filter((m) => m.scope === "company")).toHaveLength(10);
+  it("har 11 selskabsmoduler (inkl. Scope 3) og 7 lokationsmoduler med unikke nøgler", () => {
+    expect(MODULES.filter((m) => m.scope === "company")).toHaveLength(11);
     expect(MODULES.filter((m) => m.scope === "location")).toHaveLength(7);
     expect(new Set(MODULES.map((m) => m.key)).size).toBe(MODULES.length);
   });

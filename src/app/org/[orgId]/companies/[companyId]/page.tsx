@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/action-form";
+import { CvrLocationSuggestions } from "@/components/cvr-location-suggestions";
 import { CompanyForm } from "@/components/company-form";
 import { InviteForm } from "@/components/invite-form";
 import { LocationFields } from "@/components/location-fields";
@@ -16,6 +17,9 @@ import { modulesFor } from "@/lib/forms/registry";
 import { formContext, moduleStatuses } from "@/lib/module-data";
 import { getPeriods, pickPeriod } from "@/lib/periods";
 import { GhgTiles } from "@/components/results";
+import { SubmissionPanel } from "@/components/submission-panel";
+import { EditableRow } from "@/components/editable-row";
+import { readiness } from "@/lib/review";
 import { calculateCompany } from "@/lib/calc/server";
 
 const dateFmt = new Intl.DateTimeFormat("da-DK", { dateStyle: "medium" });
@@ -36,6 +40,12 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
     ? await Promise.all([moduleStatuses(period.id, `company:${companyId}`), formContext(period.id, companyId)])
     : [new Map(), null];
   const calc = canSeeData && period ? await calculateCompany(period.id, companyId) : null;
+  const ready = period ? await readiness(period.id, companyId) : null;
+  const locationProgress = (locationId: string) => {
+    const items = ready?.items.filter((i) => i.locationId === locationId) ?? [];
+    return { done: items.filter((i) => i.done).length, total: items.length };
+  };
+  const locationHref = (locationId: string) => `/org/${orgId}/locations/${locationId}${period ? `?period=${period.id}` : ""}`;
   const allCompanies = await db.company.findMany({ where: { organizationId: orgId, archivedAt: null }, select: { id: true, name: true, parentId: true }, orderBy: { name: "asc" } });
   const allowedParents = validParentIds(allCompanies, companyId);
   const parent = allCompanies.find((c) => c.id === company.parentId);
@@ -81,6 +91,10 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
+          {canSeeData && period && (
+            <SubmissionPanel orgId={orgId} periodId={period.id} year={period.year} companyId={companyId} access={access} />
+          )}
+
           {/* Indrapportering */}
           {canSeeData && (
             <Card>
@@ -116,75 +130,109 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
 
           {/* Lokationer */}
           <Card>
-            <CardHeader title="Lokationer og faciliteter" description="Alle lokationer selskabet ejer, lejer eller driver/forvalter. Hver lokation indrapporterer energi, vand og affald." />
+            <CardHeader
+              title="Lokationer og faciliteter"
+              description="Alle lokationer selskabet ejer, lejer eller driver/forvalter. Hver lokation skal udfyldes for sig – tryk “Udfyld data” for at indrapportere energi, vand, affald m.m."
+            />
             {company.locations.length === 0 ? (
               <EmptyState>Ingen lokationer endnu.</EmptyState>
             ) : (
               <ul className="divide-y divide-neutral-100">
                 {company.locations.map((loc) => (
-                  <li key={loc.id} className="px-5 py-3">
-                    <details className="group">
-                      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                        <Link href={`/org/${orgId}/locations/${loc.id}${period ? `?period=${period.id}` : ""}`} className="font-medium text-brand-700 hover:underline">
-                          {loc.name}
-                        </Link>
-                        <span className="text-neutral-600">{loc.address}</span>
-                        <Badge>{LOCATION_CONTROL_LABELS[loc.control]}</Badge>
-                        {loc.latitude === null ? <Badge tone="amber">Mangler geolokation</Badge> : null}
-                        {loc.operationalTo && loc.operationalTo < new Date() ? <Badge tone="red">Ophørt</Badge> : null}
-                        {canEdit && <span className="ml-auto text-xs text-neutral-500 group-open:hidden">Redigér</span>}
-                      </summary>
-                      <div className="mt-1 space-y-0.5 text-sm text-neutral-500">
-                        {loc.function && <p>{loc.function}</p>}
+                  <li key={loc.id} className="px-5 py-4">
+                    <EditableRow
+                      editLabel={`Redigér stamdata for ${loc.name}`}
+                      editor={
+                        access.canEditLocationMeta(loc) && (
+                          <div className="space-y-3 rounded-md bg-neutral-50 p-4">
+                            <ActionForm action={updateLocation} className="space-y-3">
+                              <input type="hidden" name="orgId" value={orgId} />
+                              <input type="hidden" name="locationId" value={loc.id} />
+                              <LocationFields loc={loc} idPrefix={loc.id} />
+                              <SubmitButton>Gem lokation</SubmitButton>
+                            </ActionForm>
+                            <ActionForm action={archiveLocation} confirm={`Arkivér lokationen "${loc.name}"?`}>
+                              <input type="hidden" name="orgId" value={orgId} />
+                              <input type="hidden" name="locationId" value={loc.id} />
+                              <SubmitButton variant="danger" pendingText="Arkiverer…">Arkivér lokation</SubmitButton>
+                            </ActionForm>
+                          </div>
+                        )
+                      }
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <Link href={locationHref(loc.id)} className="font-medium text-neutral-900 hover:text-brand-700 hover:underline">
+                            {loc.name}
+                          </Link>
+                          <Badge>{LOCATION_CONTROL_LABELS[loc.control]}</Badge>
+                          {loc.latitude === null ? <Badge tone="amber">Mangler geolokation</Badge> : null}
+                          {loc.operationalTo && loc.operationalTo < new Date() ? <Badge tone="red">Ophørt</Badge> : null}
+                        </div>
+                        <p className="mt-0.5 text-sm text-neutral-500">
+                          {loc.address}
+                          {loc.function ? ` · ${loc.function}` : ""}
+                        </p>
+                      </div>
+                      {period && (() => {
+                        const p = locationProgress(loc.id);
+                        const done = p.total > 0 && p.done === p.total;
+                        return (
+                          <>
+                            <div className="w-44" title={`${p.done} af ${p.total} moduler er færdige eller markeret ikke relevante`}>
+                              <div className="h-2 overflow-hidden rounded-full bg-neutral-200" role="progressbar" aria-label={`Fremdrift for ${loc.name}`} aria-valuenow={p.done} aria-valuemin={0} aria-valuemax={p.total}>
+                                <div className={`h-full rounded-full ${done ? "bg-brand-600" : "bg-brand-500"}`} style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} />
+                              </div>
+                              <p className="mt-1 text-xs text-neutral-500">{done ? "✓ Alle moduler udfyldt" : `${p.done} af ${p.total} moduler udfyldt`}</p>
+                            </div>
+                            <Link href={locationHref(loc.id)} className={`${done ? buttonStyles.secondary : buttonStyles.primary} whitespace-nowrap py-1.5`}>
+                              {done ? "Se data" : p.done > 0 ? "Fortsæt udfyldning" : "Udfyld data"} →
+                            </Link>
+                          </>
+                        );
+                      })()}
+                    </EditableRow>
+                    {(loc.latitude !== null || loc.operationalFrom || loc.operationalTo) && (
+                      <p className="mt-1 text-xs text-neutral-400">
                         {loc.latitude !== null && loc.longitude !== null && (
-                          <p>
-                            <a
-                              className="underline underline-offset-2 hover:text-neutral-800"
-                              href={`https://www.openstreetmap.org/?mlat=${loc.latitude}&mlon=${loc.longitude}#map=16/${loc.latitude}/${loc.longitude}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}
-                            </a>
-                          </p>
+                          <a
+                            className="underline underline-offset-2 hover:text-neutral-700"
+                            href={`https://www.openstreetmap.org/?mlat=${loc.latitude}&mlon=${loc.longitude}#map=16/${loc.latitude}/${loc.longitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}
+                          </a>
                         )}
                         {(loc.operationalFrom || loc.operationalTo) && (
-                          <p>
-                            I drift {loc.operationalFrom ? `fra ${dateFmt.format(loc.operationalFrom)}` : ""}
+                          <span>
+                            {loc.latitude !== null ? " · " : ""}I drift {loc.operationalFrom ? `fra ${dateFmt.format(loc.operationalFrom)}` : ""}
                             {loc.operationalTo ? ` til ${dateFmt.format(loc.operationalTo)}` : ""}
-                          </p>
+                          </span>
                         )}
-                      </div>
-                      {access.canEditLocationMeta(loc) && (
-                        <div className="mt-4 space-y-3 rounded-md bg-neutral-50 p-4">
-                          <ActionForm action={updateLocation} className="space-y-3">
-                            <input type="hidden" name="orgId" value={orgId} />
-                            <input type="hidden" name="locationId" value={loc.id} />
-                            <LocationFields loc={loc} idPrefix={loc.id} />
-                            <SubmitButton>Gem lokation</SubmitButton>
-                          </ActionForm>
-                          <ActionForm action={archiveLocation} confirm={`Arkivér lokationen "${loc.name}"?`}>
-                            <input type="hidden" name="orgId" value={orgId} />
-                            <input type="hidden" name="locationId" value={loc.id} />
-                            <SubmitButton variant="danger" pendingText="Arkiverer…">Arkivér lokation</SubmitButton>
-                          </ActionForm>
-                        </div>
-                      )}
-                    </details>
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
             )}
             {canEdit && (
-              <div className="border-t border-neutral-200 bg-neutral-50/50 px-5 py-4">
-                <h3 className="mb-3 text-sm font-semibold">Tilføj lokation</h3>
-                <ActionForm action={createLocation} className="space-y-3" resetOnSuccess>
+              /* Foldet ud når der ingen lokationer er; ellers foldet sammen for at holde listen overskuelig */
+              <details className="group border-t border-neutral-200 bg-neutral-50/50" open={company.locations.length === 0}>
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-semibold text-brand-700 hover:bg-neutral-50 [&::-webkit-details-marker]:hidden">
+                  <span aria-hidden="true" className="inline-flex size-5 items-center justify-center rounded-full border border-brand-500 text-xs leading-none transition-transform group-open:rotate-45">
+                    +
+                  </span>
+                  Tilføj lokation
+                </summary>
+                <ActionForm action={createLocation} className="space-y-3 px-5 pb-4" resetOnSuccess>
                   <input type="hidden" name="orgId" value={orgId} />
                   <input type="hidden" name="companyId" value={companyId} />
+                  <CvrLocationSuggestions orgId={orgId} companyId={companyId} />
                   <LocationFields idPrefix="new" />
                   <SubmitButton pendingText="Tilføjer…">Tilføj lokation</SubmitButton>
                 </ActionForm>
-              </div>
+              </details>
             )}
           </Card>
 

@@ -196,9 +196,9 @@ Svarene ligger i JSONB pr. skema, valideret med zod. Beregningsmotoren kører p�
 | 2b. Selskabsmoduler ✅ | B2/C2 politikregister, B7 cirkulær økonomi og materialer, B8/C5, B9, B10, B11/C8/C9 med plausibilitetstjek | Selskaberne kan indrapportere deres B-data |
 | 2c–2d. Lokationer og Scope 1 ✅ | Vand, affald, forurening, biodiversitet/vandstress samt Scope 1 med kobling til lokation (vises i lokationens energioverblik) | Hele Basismodulet kan indrapporteres |
 | 3. Beregninger ✅ | Klimakompassets faktorer (ENS-ark 2015–2035) som versioneret, udvideligt faktorsæt, enhedsomregning, alle KPI'er, tests | Live nøgletal pr. selskab |
-| 4. Konsolidering | Koncerndashboard, statusoverblik, review og godkendelse, lås | Samlet koncernopgørelse |
-| 5. Eksport | PPTX fra skabelon, PDF, Excel | Færdig rapport |
-| 6. Udvidelser | C-modulerne menneskerettigheder (C6/C7), klimamål og -risici (C3/C4) og lokale indsatser, Scope 3-forløb, sammenligning med sidste år, import af gamle Jotform-svar | v2 |
+| 4. Konsolidering ✅ | Koncerndashboard, statusoverblik, review og godkendelse, lås | Samlet koncernopgørelse |
+| 5. Eksport ✅ | PowerPoint i Erhvervsstyrelsens skabelon med koncernens logo, PDF via LibreOffice (Excel venter) | Færdig rapport |
+| 6. Udvidelser ✅ | C3/C4 klimamål og -risici, lokale indsatser og klimafarer pr. lokation, Scope 3-forløb med Klimakompassets faktorer, sammenligning med sidste år. Import af gamle Jotform-svar er fravalgt | v2 |
 
 Første milepæl (fase 1–3 + simpel eksport) giver et end-to-end flow for ét selskab. Konsolidering bygges ovenpå.
 
@@ -213,11 +213,11 @@ Første milepæl (fase 1–3 + simpel eksport) giver et end-to-end flow for ét 
 | Flere kunder | Ja (multi-tenant), allerede bygget i fase 1 | – |
 | Jotform-import | **Nej**, vi starter forfra | Feltnøgler designes alene efter VS-punkterne |
 | Vejledningstekster | **Genbrug** Jotforms "Info"- og "Sådan finder du data"-tekster. Skabelonens begrebsforklaringer omskrives kort | Teksterne ligger i skema-config pr. felt |
+| Konsolidering | **Altid 100 %** for de omfattede selskaber | Summer af rådata, rater genberegnes. Koncernomsætning kan angives pr. rapport |
 | Udvidet Modul | Bygges gradvist. C-felter vises kun ved B+C (afsnit 1b) | – |
 | Emissionsfaktorer | **Klimakompasset** (Energistyrelsens emissionsfaktorark) med mulighed for egne faktorsæt. GWP: AR6, som Klimakompasset | Importeres med `npm run factors:import`. Egne sæt er kopier, der kan rettes pr. faktor |
+| Rapportlayout | **Erhvervsstyrelsens skabelon + koncernens logo**. Skabelonens begrebsforklaringer og vejledningsbokse bevares | Logo uploades under Indstillinger. PDF laves af LibreOffice ud fra PowerPoint-filen |
 | Uploads | **Afgøres senere**. Der bygges mod et storage-interface med lokal disk i udvikling | S3 eller Azure Blob kan sættes på uden kodeændringer |
 
 ### Stadig åbne
 1. Hosting: Azure, Vercel/Supabase eller egne servere? (afgør bl.a. storage og eksport-worker)
-2. Konsolidering: altid 100 % for datterselskaber, eller også ejerandelsbaseret? *(før fase 4)*
-3. Skal PowerPoint-rapporten følge Erhvervsstyrelsens layout 1:1, eller have jeres eget branding? *(før fase 5)*

@@ -18,10 +18,12 @@ export type Scope1Line = {
   scope2T: number;
   /** Biogen CO2 (udenfor scopes) */
   outsideT: number;
+  /** Opstrømsudledning fra brændslets produktion og transport (scope 3, kategori 3) */
+  upstreamT: number;
   mwh: EnergySplit;
 };
 
-export type Scope1Result = { lines: Scope1Line[]; tCO2e: number; scope2T: number; outsideT: number; fuelsMWh: EnergySplit; issues: CalcIssue[] };
+export type Scope1Result = { lines: Scope1Line[]; tCO2e: number; scope2T: number; outsideT: number; upstreamT: number; fuelsMWh: EnergySplit; issues: CalcIssue[] };
 
 /** Vedvarende andel for ledningsgas afledt af faktorens biogene andel (udenfor scopes) */
 function biogenicShare(f: { scope1: number; outsideScopes: number }) {
@@ -75,6 +77,7 @@ export function calcScope1(a: Row, lookup: FactorLookup): Scope1Result {
         tCO2e: (amount * f.scope1) / 1000,
         scope2T: (amount * f.scope2) / 1000,
         outsideT: (amount * f.outsideScopes) / 1000,
+        upstreamT: (amount * f.scope3) / 1000,
         mwh,
       });
     }
@@ -95,6 +98,7 @@ export function calcScope1(a: Row, lookup: FactorLookup): Scope1Result {
       }
       let scope1 = f.scope1;
       let outside = f.outsideScopes;
+      let upstream = f.scope3;
       let renewableShare = fuel === "Ledningsgas" ? biogenicShare(f) : ["Biogas", "Halm", "Træpiller", "Træflis"].includes(fuel) ? 1 : 0;
       // Naturgas med dokumenteret biogasandel: blanding af Klimakompassets faktorer for naturgas (0 % biogas) og biogas
       const share = fuel === "Naturgas" ? n(r.biogasShare) : null;
@@ -104,6 +108,7 @@ export function calcScope1(a: Row, lookup: FactorLookup): Scope1Result {
           const s = Math.min(share, 100) / 100;
           scope1 = (1 - s) * f.scope1 + s * bio.scope1;
           outside = (1 - s) * f.outsideScopes + s * bio.outsideScopes;
+          upstream = (1 - s) * f.scope3 + s * bio.scope3;
           renewableShare = s;
         }
       }
@@ -116,6 +121,7 @@ export function calcScope1(a: Row, lookup: FactorLookup): Scope1Result {
         tCO2e: (amount * scope1) / 1000,
         scope2T: 0,
         outsideT: (amount * outside) / 1000,
+        upstreamT: (amount * upstream) / 1000,
         mwh: e === null ? emptySplit() : { renewable: e * renewableShare, nonRenewable: e * (1 - renewableShare) },
       });
     }
@@ -143,7 +149,7 @@ export function calcScope1(a: Row, lookup: FactorLookup): Scope1Result {
         miss(`Manglende GWP-værdi for en komponent i “${ref}”.`);
         continue;
       }
-      lines.push({ category: "Kølemidler", label: `${ref}: ${kg.toLocaleString("da-DK")} kg`, locationId: (r.location as string) ?? null, tCO2e: (kg * gwp) / 1000, scope2T: 0, outsideT: 0, mwh: emptySplit() });
+      lines.push({ category: "Kølemidler", label: `${ref}: ${kg.toLocaleString("da-DK")} kg`, locationId: (r.location as string) ?? null, tCO2e: (kg * gwp) / 1000, scope2T: 0, outsideT: 0, upstreamT: 0, mwh: emptySplit() });
     }
   }
 
@@ -159,7 +165,7 @@ export function calcScope1(a: Row, lookup: FactorLookup): Scope1Result {
         miss(`Ingen GWP-værdi for “${gas}”.`);
         continue;
       }
-      lines.push({ category: "Procesudledninger", label: `${gas}: ${amount.toLocaleString("da-DK")} ${r.unit ?? "kg"}`, locationId: (r.location as string) ?? null, tCO2e: (kg * f.scope1) / 1000, scope2T: 0, outsideT: 0, mwh: emptySplit() });
+      lines.push({ category: "Procesudledninger", label: `${gas}: ${amount.toLocaleString("da-DK")} ${r.unit ?? "kg"}`, locationId: (r.location as string) ?? null, tCO2e: (kg * f.scope1) / 1000, scope2T: 0, outsideT: 0, upstreamT: 0, mwh: emptySplit() });
     }
   }
 
@@ -168,6 +174,7 @@ export function calcScope1(a: Row, lookup: FactorLookup): Scope1Result {
     tCO2e: lines.reduce((s, l) => s + l.tCO2e, 0),
     scope2T: lines.reduce((s, l) => s + l.scope2T, 0),
     outsideT: lines.reduce((s, l) => s + l.outsideT, 0),
+    upstreamT: lines.reduce((s, l) => s + l.upstreamT, 0),
     fuelsMWh: lines.reduce((s, l) => addSplit(s, l.mwh), emptySplit()),
     issues,
   };

@@ -62,7 +62,9 @@ const isDate = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.te
 
 /** Kolonnens valgmuligheder – statiske eller fra konteksten */
 export function columnOptions(col: ColumnDef, ctx?: FormContext) {
-  return col.dynamicOptions === "locations" ? (ctx?.locations ?? []) : (col.options ?? []);
+  if (col.dynamicOptions === "locations") return ctx?.locations ?? [];
+  if (col.dynamicOptions === "scope3Factors") return ctx?.scope3Factors ?? [];
+  return col.options ?? [];
 }
 
 function cleanCell(col: ColumnDef, v: unknown, ctx?: FormContext): unknown {
@@ -72,7 +74,7 @@ function cleanCell(col: ColumnDef, v: unknown, ctx?: FormContext): unknown {
     case "select":
       if (typeof v !== "string") return null;
       // Uden kontekst (fx i tests) accepteres dynamiske værdier, som serveren validerer med kontekst
-      if (col.dynamicOptions && !ctx) return v.slice(0, 40);
+      if (col.dynamicOptions && !ctx) return v.slice(0, 200);
       return columnOptions(col, ctx).some((o) => o.value === v) ? v : null;
     case "date":
       return isDate(v) ? v : null;

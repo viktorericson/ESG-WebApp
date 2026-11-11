@@ -17,6 +17,10 @@ model User {
   email     String   @unique
   name      String?
   createdAt DateTime @default(now())
+  /// Sidste gang brugeren loggede ind via et login-link
+  lastLoginAt DateTime?
+  /// Spærret af platformens ejer: kan ikke logge ind, og eksisterende sessioner virker ikke
+  disabledAt  DateTime?
 
   sessions            Session[]
   memberships         Membership[]
@@ -24,6 +28,24 @@ model User {
   auditLogs           AuditLog[]
   moduleEdits         ModuleData[]
   attachments         Attachment[]
+  submissionsSent     CompanySubmission[] @relation("SubmittedBy")
+  submissionsReviewed CompanySubmission[] @relation("ReviewedBy")
+  adminActions        AdminLog[]
+}
+
+/// Handlinger foretaget i platformens admin-dashboard (på tværs af koncerner)
+model AdminLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String   // fx user.disable
+  targetType String
+  targetId   String
+  data       Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
 }
 
 model Session {
@@ -58,6 +80,10 @@ model Organization {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
+  /// Logo til eksporterede rapporter (PNG/JPEG i fil-lagringen)
+  logoKey         String?
+  logoContentType String?
+  logoUpdatedAt   DateTime?
 
   companies   Company[]
   memberships Membership[]
@@ -101,6 +127,7 @@ model Company {
   reportsAsReporting Report[]        @relation("ReportingCompany")
   reportLinks        ReportCompany[]
   moduleData         ModuleData[]
+  submissions        CompanySubmission[]
 
   @@unique([organizationId, cvr])
   @@index([parentId])
@@ -149,6 +176,7 @@ model ReportingPeriod {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   reports      Report[]
   moduleData   ModuleData[]
+  submissions  CompanySubmission[]
   /// Faktorsæt beregningerne for året bruger. Tom = standardsættet.
   factorSetId  String?
   factorSet    FactorSet?   @relation(fields: [factorSetId], references: [id], onDelete: SetNull)
@@ -187,6 +215,9 @@ model Report {
   reportingCompanyId   String
   /// Undtagelser og udeladelser (B1) – struktureres pr. VS-punkt i fase 2
   omissions            String?
+  /// Koncernens konsoliderede omsætning (kr.) fra koncernregnskabet – bruges til CO2e-intensitet,
+  /// så koncerninterne salg ikke tælles med. Tom = summen af selskabernes omsætning.
+  consolidatedTurnover Float?
   status               ReportStatus @default(DRAFT)
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
@@ -377,4 +408,35 @@ model EmissionFactor {
 
   @@unique([setId, year, key])
   @@index([setId, year, category])
+}
+
+// ---------- Gennemgang (fase 4) ----------
+// Selskabet indsender sine data for året; koncernadmin godkender eller sender tilbage med en kommentar.
+// Data er låst, mens de er indsendt eller godkendt.
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  RETURNED
+  APPROVED
+}
+
+model CompanySubmission {
+  id            String           @id @default(cuid())
+  periodId      String
+  companyId     String
+  status        SubmissionStatus @default(DRAFT)
+  comment       String?
+  submittedAt   DateTime?
+  submittedById String?
+  reviewedAt    DateTime?
+  reviewedById  String?
+  updatedAt     DateTime         @updatedAt
+
+  period      ReportingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  submittedBy User?           @relation("SubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  reviewedBy  User?           @relation("ReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([periodId, companyId])
 }

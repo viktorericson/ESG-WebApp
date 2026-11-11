@@ -2,9 +2,11 @@ import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { ModuleBadge, StatusBadge } from "@/components/report-badges";
 import { ReportForm } from "@/components/report-form";
-import { Card, CardHeader, PageHeader, Select } from "@/components/ui";
+import { Card, CardHeader, PageHeader, Select, buttonStyles } from "@/components/ui";
+import { sofficePath } from "@/lib/export/pdf";
 import { deleteReport, setReportStatus, updateReport } from "@/lib/actions/reports";
 import { deny, requireOrgAccess } from "@/lib/auth";
+import { GroupKpis, PolicyMatrix, ReportStatus } from "@/components/report-overview";
 import { db } from "@/lib/db";
 import { REPORT_BASIS_LABELS, REPORT_MODULE_LABELS, REPORT_STATUS_LABELS, reportStatuses } from "@/lib/validation";
 
@@ -31,6 +33,7 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
   });
   const included = report.companies.map((rc) => rc.company).sort((a, b) => (a.id === report.reportingCompanyId ? -1 : b.id === report.reportingCompanyId ? 1 : a.name.localeCompare(b.name, "da")));
   const locked = report.status === "APPROVED";
+  const pdfAvailable = sofficePath() !== null;
 
   return (
     <>
@@ -72,6 +75,35 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
         </Card>
 
         <aside className="space-y-6">
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold">Eksportér rapport</h3>
+            <p className="mt-1 text-xs text-neutral-500">
+              Erhvervsstyrelsens ESG-skabelon udfyldt med rapportens data{report.status !== "APPROVED" && ". Rapporten er ikke godkendt, så forsiden er mærket “Udkast”"}.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a href={`/api/reports/${report.id}/export?format=pptx`} download className={buttonStyles.primary}>
+                PowerPoint
+              </a>
+              {pdfAvailable ? (
+                <a href={`/api/reports/${report.id}/export?format=pdf`} download className={buttonStyles.secondary}>
+                  PDF
+                </a>
+              ) : (
+                <span className={`${buttonStyles.secondary} pointer-events-none opacity-50`} title="LibreOffice er ikke installeret på serveren">
+                  PDF
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-neutral-500">
+              {pdfAvailable ? "PDF'en kan tage op til et minut at danne." : "PDF kræver LibreOffice på serveren."}
+              {access.canManageOrg && (
+                <>
+                  {" "}
+                  <Link href={`/org/${orgId}/settings`} className="text-brand-700 hover:underline">Logo til rapporter →</Link>
+                </>
+              )}
+            </p>
+          </Card>
           <Card>
             <CardHeader title="Omfattede selskaber" description={`${included.length} ${included.length === 1 ? "selskab" : "selskaber"} · standard: ${report.standardVersion}`} />
             <ul className="divide-y divide-neutral-100 text-sm">
@@ -85,7 +117,6 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
                 </li>
               ))}
             </ul>
-            <p className="border-t border-neutral-100 px-5 py-3 text-xs text-neutral-500">Status pr. modul for hvert selskab kommer med skemaerne i fase 2.</p>
           </Card>
 
           {access.canManageOrg && (
@@ -111,6 +142,12 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
             </Card>
           )}
         </aside>
+      </div>
+
+      <div className="mt-8 space-y-6">
+        <ReportStatus orgId={orgId} periodId={report.periodId} companies={included} />
+        <GroupKpis reportId={report.id} consolidated={report.basis === "CONSOLIDATED"} />
+        <PolicyMatrix periodId={report.periodId} companies={included} />
       </div>
     </>
   );

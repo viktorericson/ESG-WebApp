@@ -51,7 +51,7 @@ export function ModuleList({
         const cls = "flex items-center gap-3 px-5 py-3 text-sm";
         return (
           <li key={m.key}>
-            {built ? (
+            {built && !(cOnlyModule && !comprehensive) ? (
               <Link href={hrefFor(m)} className={cx(cls, "hover:bg-neutral-50")}>
                 {inner}
               </Link>
