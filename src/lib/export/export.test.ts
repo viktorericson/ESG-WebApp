@@ -8,6 +8,9 @@ import type { FactorLookup } from "../calc/types";
 import { fillEsgTemplate } from "./esg-template";
 import { imageSize } from "./image-size";
 import { buildExportModel, combineYesNo, splitAddress, type ExportCompany, type ExportInput } from "./model";
+import { brandPalette, contrastWithWhite, MIN_CONTRAST, normalizeHex } from "../brand";
+import { buildSummary, formatChange, isImprovement } from "../summary";
+import { buildPreviews, withPrevious } from "./preview";
 
 const template = readFileSync(path.join(process.cwd(), "templates/esg_skabelon_dansk.pptx"));
 const noFactors: FactorLookup = () => undefined;
@@ -203,5 +206,129 @@ describe("PowerPoint-skabelon", () => {
     // Scope 3 står lige efter scope 1 og 2
     const ghgIdx = texts.findIndex((t) => t.includes("pkt. 33"));
     expect(texts[ghgIdx + 1]).toContain("scope 3");
+  });
+});
+
+describe("ren skabelon og ekstra sider", () => {
+  const logoData = readFileSync(path.join(__dirname, "__fixtures__/logo.png"));
+  const pic = (caption: string | null = null) => ({ data: logoData, ext: "png" as const, width: 400, height: 120, caption });
+  const summary = buildSummary(
+    2026,
+    calcCompany({ modules: { workforce: { employees: [{ gender: "FEMALE", count: 3 }, { gender: "MALE", count: 7 }] } }, locations: [] }, noFactors),
+    { year: 2025, r: calcCompany({ modules: { workforce: { employees: [{ gender: "FEMALE", count: 2 }, { gender: "MALE", count: 8 }] } }, locations: [] }, noFactors) },
+    { certifications: 1, policies: 3, policiesWithTargets: 2 },
+  );
+
+  it("fjerner al vejledning, også uden ekstra indhold", async () => {
+    const m = buildExportModel(input([company("a", "Solo ApS")], false));
+    const { buffer, leftovers } = await fillEsgTemplate(template, m, null, { content: {}, pictures: {}, summary: null, brandColor: null, cover: null });
+    expect(leftovers).toEqual([]);
+    const all = (await slideTexts(buffer)).join(" ");
+    for (const t of ["Begrebsforklaringer", "Mulige datakilder", "Oplysningspunktet skal", "Vejledning til udfyldelse"]) expect(all).not.toContain(t);
+  });
+
+  it("indsætter forord, ledelsesoversigt, kommentarer, billeder og bilag i rigtig rækkefølge", { timeout: 30_000 }, async () => {
+    const m = buildExportModel(input([company("a", "Solo ApS")], false));
+    const { buffer, leftovers } = await fillEsgTemplate(template, m, null, {
+      content: {
+        foreword: "Første afsnit af forordet.\nAndet afsnit.",
+        about: "Om os.",
+        summary: { show: true, environment: "Udledningen faldt." },
+        sections: { b6: "Vandet kommer fra det offentlige net.", b11: "Ingen domme." },
+        closing: "Afsluttende bemærkning.",
+      },
+      pictures: { foreword: [pic()], "section:b6": [pic("Kort over området")], appendix: [pic("ISO 14001-certifikat"), pic("Firmaprofil")] },
+      summary,
+      brandColor: null,
+      cover: null,
+    });
+    expect(leftovers).toEqual([]);
+    const texts = await slideTexts(buffer);
+    const idx = (s: string) => texts.findIndex((t) => t.includes(s));
+    // Forside, forord, om, ledelsesoversigt, indholdsfortegnelse
+    expect(idx("Første afsnit af forordet")).toBe(1);
+    expect(idx("Om Solo ApS")).toBe(2);
+    expect(idx("Ledelsesoversigt 2026")).toBe(3);
+    expect(texts[3]).toContain("Udledningen faldt.");
+    expect(texts[3]).toContain("+10 pct.-point ift. 2025");
+    expect(idx("Generelle oplysninger")).toBe(4);
+    // Kommentarer står på afsnittets egen side
+    expect(texts[idx("Vandudtag")]).toContain("Vandet kommer fra det offentlige net.");
+    expect(texts[idx("pkt. 43")]).toContain("Ingen domme.");
+    // Billedsiden kommer lige efter afsnittet
+    expect(texts[idx("Vandudtag") + 1]).toContain("Kort over området");
+    // Bagerst: kommentarer, bilag, afslutning
+    const closing = idx("Afsluttende bemærkning.");
+    expect(texts[closing + 1]).toContain("ISO 14001-certifikat");
+    expect(texts[closing + 2]).toContain("Firmaprofil");
+    expect(texts[closing + 3]).toContain("Tak for at læse med");
+    // Indholdsfortegnelsen peger på de rigtige sider
+    expect(texts[4]).toMatch(new RegExp(`Bilag\\s+Side ${closing + 2}`));
+  });
+
+  it("deler en lang kommentar ud på en egen side", { timeout: 30_000 }, async () => {
+    const m = buildExportModel(input([company("a", "Solo ApS")], false));
+    const long = Array.from({ length: 12 }, (_, i) => `Afsnit ${i + 1}: ${"Lang forklaring af udviklingen i vandforbruget. ".repeat(4)}`).join("\n");
+    const { buffer } = await fillEsgTemplate(template, m, null, { content: { sections: { b6: long } }, pictures: {}, summary: null, brandColor: null, cover: null });
+    const texts = await slideTexts(buffer);
+    const b6 = texts.findIndex((t) => t.includes("Vandudtag"));
+    expect(texts[b6]).not.toContain("Afsnit 1:");
+    expect(texts[b6 + 1]).toContain("– kommentar");
+    expect(texts[b6 + 1]).toContain("Afsnit 1:");
+  });
+
+  it("bruger kundens farve og forsidefoto", { timeout: 30_000 }, async () => {
+    const m = buildExportModel(input([company("a", "Solo ApS")], false));
+    const { buffer } = await fillEsgTemplate(template, m, null, { content: {}, pictures: {}, summary: null, brandColor: "003750", cover: pic() });
+    const zip = await JSZip.loadAsync(buffer);
+    const theme = await zip.file("ppt/theme/theme1.xml")!.async("string");
+    expect(theme).toContain('<a:dk2><a:srgbClr val="003750"/>');
+    expect(theme).not.toContain("1B4528");
+    const layout = await zip.file("ppt/slideLayouts/slideLayout2.xml")!.async("string");
+    const rels = await zip.file("ppt/slideLayouts/_rels/slideLayout2.xml.rels")!.async("string");
+    const rId = layout.match(/<p:bg>.*?r:embed="(rId\d+)"/)![1];
+    expect(rels).toMatch(new RegExp(`Id="${rId}"[^>]*export-image\\d+\\.png`));
+  });
+});
+
+describe("ledelsesoversigt og farver", () => {
+  it("viser ændringer i procent og andele i procentpoint", () => {
+    expect(formatChange(-10)).toBe("−10 %");
+    expect(formatChange(4, "pp")).toBe("+4 pct.-point");
+    expect(formatChange(null)).toBeNull();
+    expect(isImprovement({ label: "", value: "", change: -5, direction: "down" })).toBe(true);
+    expect(isImprovement({ label: "", value: "", change: 5, direction: "down" })).toBe(false);
+    expect(isImprovement({ label: "", value: "", change: 5, direction: null })).toBeNull();
+  });
+
+  it("afleder lyse toner af kundens farve og kræver kontrast til hvid tekst", () => {
+    const p = brandPalette("003750");
+    expect(p["1B4528"]).toBe("003750");
+    expect(p["E8ECEA"]).toMatch(/^E[0-9A-F]{5}$/);
+    expect(normalizeHex("#abc")).toBe("AABBCC");
+    expect(normalizeHex("nope")).toBeNull();
+    expect(contrastWithWhite("003750")).toBeGreaterThan(MIN_CONTRAST);
+    expect(contrastWithWhite("FFE680")).toBeLessThan(MIN_CONTRAST);
+  });
+});
+
+describe("indrapporterede data pr. afsnit", () => {
+  it("viser rapportens tal pr. afsnit og markerer afsnit, der udelades", () => {
+    const pv = buildPreviews(buildExportModel(input([company("a", "Solo ApS")], false)));
+    expect(pv.b1Figures!.tables[0].rows).toContainEqual(["Omsætning", "50.000.000 kr."]);
+    expect(pv.b8!.tables[0].rows).toContainEqual(["I alt", "30"]);
+    expect(pv.b4!.omitted).toMatch(/udelades/);
+    expect(pv.b6!.omitted).toBeUndefined();
+    expect(pv.c1).toBeUndefined();
+  });
+
+  it("lægger året før ind som kolonne i nøgle/værdi-tabeller", () => {
+    const now = buildPreviews(buildExportModel(input([company("a", "Solo ApS")], false)));
+    const before = buildPreviews(buildExportModel(input([company("a", "Solo ApS", { "company.health": { recordableAccidents: 4, fatalitiesAccidents: 0, fatalitiesIllHealth: 0 } })], false)));
+    const merged = withPrevious(now, before, { now: 2026, before: 2025 });
+    expect(merged.b9!.tables[0].head).toEqual(["", "2025", "2026"]);
+    expect(merged.b9!.tables[0].rows[0]).toEqual(["Registrerbare arbejdsulykker", "4", "1"]);
+    // Lister med egne kolonner røres ikke
+    expect(merged.b2!.tables[0].head![0]).toBe("Emne");
   });
 });

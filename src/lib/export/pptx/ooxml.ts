@@ -164,8 +164,15 @@ export class Pptx {
     return copy;
   }
 
-  /** Tilføjer et billede til mediemappen og returnerer et relations-id på sliden */
-  async addImage(slide: Slide, data: Uint8Array, ext: "png" | "jpeg"): Promise<string> {
+  /** Stien til slidens layout, fx ppt/slideLayouts/slideLayout2.xml */
+  async layoutOf(slide: Slide): Promise<string | null> {
+    const rels = await this.rels(slide.path);
+    const rel = descendants(rels, NS.rel, "Relationship").find((r) => r.getAttribute("Type")?.endsWith("/slideLayout"));
+    return rel ? `ppt/slideLayouts/${rel.getAttribute("Target")!.split("/").pop()}` : null;
+  }
+
+  /** Tilføjer et billede til mediemappen og returnerer et relations-id på sliden (eller en anden del, fx et layout) */
+  async addImage(slide: Pick<Slide, "path">, data: Uint8Array, ext: "png" | "jpeg"): Promise<string> {
     let n = 1;
     while (this.zip.file(`ppt/media/export-image${n}.${ext}`)) n++;
     const media = `ppt/media/export-image${n}.${ext}`;
@@ -186,6 +193,24 @@ export class Pptx {
     rels.documentElement!.appendChild(rel);
     this.zip.file(this.relsPath(slide.path), serialize(rels));
     return rId;
+  }
+
+  /** Navne på pakkens dele med det givne præfiks, fx "ppt/slideLayouts/" */
+  partNames(prefix: string): string[] {
+    return Object.keys(this.zip.files).filter((n) => n.startsWith(prefix) && n.endsWith(".xml") && !this.zip.files[n].dir);
+  }
+
+  /**
+   * Redigerer en XML-del, der ikke er en slide (tema, layouts, master). Slides redigeres via
+   * `slide.doc`, da de skrives ved gem.
+   */
+  async editXml(path: string, fn: (doc: Document) => void) {
+    if (this.slides.some((s) => s.path === path)) throw new Error("Slides redigeres via slide.doc");
+    const f = this.zip.file(path);
+    if (!f) return;
+    const doc = parse(await f.async("string"));
+    fn(doc);
+    this.zip.file(path, serialize(doc));
   }
 
   async save(): Promise<Buffer> {

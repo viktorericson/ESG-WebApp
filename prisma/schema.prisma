@@ -84,6 +84,12 @@ model Organization {
   logoKey         String?
   logoContentType String?
   logoUpdatedAt   DateTime?
+  /// Rapportfarve (hex, fx "1B4528") – erstatter skabelonens grønne i eksporten
+  brandColor       String?
+  /// Forsidefoto til eksporterede rapporter (PNG/JPEG i fil-lagringen)
+  coverKey         String?
+  coverContentType String?
+  coverUpdatedAt   DateTime?
 
   companies   Company[]
   memberships Membership[]
@@ -219,14 +225,36 @@ model Report {
   /// så koncerninterne salg ikke tælles med. Tom = summen af selskabernes omsætning.
   consolidatedTurnover Float?
   status               ReportStatus @default(DRAFT)
+  /// Rapportens tekster: forord, kernefortælling, ledelsesoversigt, kommentarer pr. afsnit mv.
+  /// Valideres med reportContentSchema i src/lib/report-content.ts
+  content              Json         @default("{}")
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
   period           ReportingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
   reportingCompany Company         @relation("ReportingCompany", fields: [reportingCompanyId], references: [id])
   companies        ReportCompany[]
+  images           ReportImage[]
 
   @@index([periodId])
+}
+
+/// Billede i den eksporterede rapport. slot: "foreword" | "about" | "section:<nøgle>" | "appendix"
+model ReportImage {
+  id          String   @id @default(cuid())
+  reportId    String
+  slot        String
+  caption     String?
+  sort        Int      @default(0)
+  storageKey  String   @unique
+  contentType String
+  width       Int
+  height      Int
+  createdAt   DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, slot])
 }
 
 /// Selskaber der er omfattet af rapporten

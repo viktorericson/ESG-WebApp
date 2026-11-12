@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ActionForm, FieldError, SubmitButton } from "@/components/action-form";
 import { LogoUpload } from "@/components/logo-upload";
 import { Card, CardHeader, EmptyState, Input, Label, PageHeader } from "@/components/ui";
-import { renameOrganization } from "@/lib/actions/org";
+import { renameOrganization, setBrandColor } from "@/lib/actions/org";
+import { TEMPLATE_DARK } from "@/lib/brand";
 import { deny, requireOrgAccess } from "@/lib/auth";
 import { ACTION_LABELS } from "@/lib/audit-labels";
 import { db } from "@/lib/db";
@@ -38,6 +39,37 @@ export default async function SettingsPage({ params }: PageProps<"/org/[orgId]/s
         <Card>
           <CardHeader title="Logo til rapporter" description="Bruges i PowerPoint- og PDF-eksporten." />
           <LogoUpload orgId={orgId} version={organization.logoKey ? (organization.logoUpdatedAt?.toISOString() ?? organization.logoKey) : null} />
+        </Card>
+        <Card>
+          <CardHeader title="Forsidefoto" description="Erstatter skabelonens forsidebillede i eksporten." />
+          <LogoUpload kind="cover" orgId={orgId} version={organization.coverKey ? (organization.coverUpdatedAt?.toISOString() ?? organization.coverKey) : null} />
+        </Card>
+        <Card>
+          <CardHeader title="Rapportfarve" description="Erstatter skabelonens mørkegrønne farve i overskrifter, tabeller og bokse. Lysere toner afledes automatisk." />
+          <ActionForm action={setBrandColor} className="space-y-3 p-5">
+            <input type="hidden" name="orgId" value={orgId} />
+            <div className="flex items-center gap-3">
+              <Label htmlFor="brandColor">Farve</Label>
+              <input
+                id="brandColor"
+                name="brandColor"
+                type="color"
+                defaultValue={`#${organization.brandColor ?? TEMPLATE_DARK}`}
+                className="h-9 w-16 cursor-pointer rounded border border-neutral-300 bg-white p-1"
+              />
+              <span className="text-sm tabular-nums text-neutral-500">{organization.brandColor ? `#${organization.brandColor}` : "Skabelonens grønne"}</span>
+            </div>
+            <FieldError name="brandColor" />
+            <p className="text-xs text-neutral-500">Vælg en mørk farve, så hvid tekst kan læses på den.</p>
+            <div className="flex gap-2">
+              <SubmitButton>Gem farve</SubmitButton>
+              {organization.brandColor && (
+                <button type="submit" name="reset" value="1" className="text-sm text-neutral-600 hover:underline">
+                  Brug skabelonens farve
+                </button>
+              )}
+            </div>
+          </ActionForm>
         </Card>
         <Card>
           <CardHeader title="Koncern" />

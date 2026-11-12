@@ -1,12 +1,16 @@
 import "server-only";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { calculateReport } from "../calc/server";
+import { calculateReport, calculateReportPrevious } from "../calc/server";
 import { db } from "../db";
 import { storage } from "../storage";
 import { fillEsgTemplate, type Logo } from "./esg-template";
 import { imageSize } from "./image-size";
-import { buildExportModel, type ExportCompany } from "./model";
+import { buildExportModel, type ExportCompany, type ExportModel } from "./model";
+import { readContent, type ReportContent } from "../report-content";
+import { buildSummary, type Summary } from "../summary";
+import { previousReportFor } from "../reports";
+import { buildPreviews, withPrevious, type Previews } from "./preview";
 
 type Answers = Record<string, unknown>;
 
@@ -81,7 +85,76 @@ export async function buildReportPptx(reportId: string) {
   const { report, input } = await loadExportInput(reportId);
   const [template, logo] = await Promise.all([readFile(TEMPLATE), loadLogo(report.period.organizationId)]);
   const model = buildExportModel(input);
-  const { buffer, leftovers } = await fillEsgTemplate(template, model, logo);
+  const extras = await loadReportExtras(reportId, model);
+  const pictures: Record<string, ExportImage[]> = {};
+  for (const img of extras.images) (pictures[img.slot] ??= []).push(img);
+  const { buffer, leftovers } = await fillEsgTemplate(template, model, logo, {
+    content: extras.content,
+    pictures,
+    summary: extras.summary,
+    brandColor: extras.brandColor,
+    cover: extras.cover,
+  });
   if (leftovers.length) console.warn(`[eksport] Pladsholdere uden data i rapport ${reportId}:`, leftovers);
   return { buffer, report, model };
+}
+
+/** Ledelsesoversigtens nøgletal for rapporten (i år og året før) */
+export async function loadSummary(reportId: string, model?: ExportModel): Promise<Summary> {
+  const [{ group }, previous] = await Promise.all([calculateReport(reportId), calculateReportPrevious(reportId)]);
+  const m = model ?? buildExportModel((await loadExportInput(reportId)).input);
+  const withPractice = m.b2.rows.filter((r) => r.has === "Ja" || r.has.startsWith("Delvist"));
+  return buildSummary(m.year, group, previous ? { year: previous.year, r: previous.group } : null, {
+    certifications: m.b1.certifications.length,
+    policies: withPractice.length,
+    policiesWithTargets: withPractice.filter((r) => r.targets === "Ja" || r.targets.startsWith("Delvist")).length,
+  });
+}
+
+export type ExportImage = { slot: string; caption: string | null; data: Uint8Array; ext: "png" | "jpeg"; width: number; height: number };
+
+/** Det, der ikke er tal: tekster, billeder, ledelsesoversigt og kundens design */
+export type ReportExtras = {
+  content: ReportContent;
+  images: ExportImage[];
+  summary: Summary | null;
+  brandColor: string | null;
+  cover: { data: Uint8Array; ext: "png" | "jpeg"; width: number; height: number } | null;
+};
+
+export async function loadReportExtras(reportId: string, model: ExportModel): Promise<ReportExtras> {
+  const report = await db.report.findUniqueOrThrow({
+    where: { id: reportId },
+    select: {
+      content: true,
+      images: { orderBy: [{ slot: "asc" }, { sort: "asc" }, { createdAt: "asc" }] },
+      period: { select: { organization: { select: { brandColor: true, coverKey: true } } } },
+    },
+  });
+  const content = readContent(report.content);
+  const images: ExportImage[] = [];
+  for (const img of report.images) {
+    const data = new Uint8Array(await storage.get(img.storageKey));
+    const size = imageSize(data);
+    if (size) images.push({ slot: img.slot, caption: img.caption, data, ext: size.type, width: size.width, height: size.height });
+  }
+  const org = report.period.organization;
+  let cover: ReportExtras["cover"] = null;
+  if (org.coverKey) {
+    const data = new Uint8Array(await storage.get(org.coverKey));
+    const size = imageSize(data);
+    if (size) cover = { data, ext: size.type, width: size.width, height: size.height };
+  }
+  const summary = content.summary?.show === false ? null : await loadSummary(reportId, model);
+  return { content, images, summary, brandColor: org.brandColor, cover };
+}
+
+/** Indrapporterede data pr. afsnit til kommentarfelterne – med året før, hvis der er en rapport for det */
+export async function loadPreviews(reportId: string): Promise<Previews> {
+  const { report, input } = await loadExportInput(reportId);
+  const current = buildPreviews(buildExportModel(input));
+  const prevReport = await previousReportFor({ ...report, period: { organizationId: report.period.organizationId, year: report.period.year } });
+  if (!prevReport) return current;
+  const prev = await loadExportInput(prevReport.id);
+  return withPrevious(current, buildPreviews(buildExportModel(prev.input)), { now: report.period.year, before: prev.input.year });
 }

@@ -7,6 +7,11 @@
  * fjernes, som skabelonen selv anviser. Lange tabeller fortsætter på en kopi af sliden.
  */
 import type { ExportModel } from "./model";
+import { brandPalette } from "../brand";
+import type { ReportContent, SectionKey } from "../report-content";
+import type { Summary } from "../summary";
+import { GUIDANCE, compact, estimateRowHeight, freeRightColumn, stripGuidance, widenTables } from "./cleanup";
+import { addText, appendixPages, paragraphs, picturePages, setCoverPhoto, summaryPage, textHeight, textPages, type Picture } from "./extras";
 import {
   EMU_PER_INCH,
   NS,
@@ -31,6 +36,18 @@ import {
 } from "./pptx/ooxml";
 
 export type Logo = { data: Uint8Array; ext: "png" | "jpeg"; width: number; height: number };
+
+/** Det, der ikke er tal: rapportens tekster, billeder, ledelsesoversigt og kundens design */
+export type TemplateExtras = {
+  content: ReportContent;
+  /** Billeder pr. plads ("foreword", "about", "section:b5", "appendix") i visningsrækkefølge */
+  pictures: Record<string, Picture[]>;
+  /** null = ledelsesoversigten er slået fra */
+  summary: Summary | null;
+  /** Hex uden #, fx "0B3D91". null = skabelonens grønne */
+  brandColor: string | null;
+  cover: Picture | null;
+};
 
 /** Skabelonens slidenumre (1-baseret) */
 const S = {
@@ -78,6 +95,48 @@ const S = {
 } as const;
 
 const inch = (v: number) => Math.round(v * EMU_PER_INCH);
+const SLIDE_SIZE = { w: 12192000, h: 6858000 };
+
+/** Hvilken slide i skabelonen hver afsnitskommentar hører til */
+const SECTION_SLIDES: Record<SectionKey, number> = {
+  b1: S.b1,
+  b1Figures: S.b1b,
+  b1Locations: S.b1c,
+  b2: S.b2,
+  b3Energy: S.b3energy,
+  b3Ghg: S.b3ghg,
+  scope3: S.scope3,
+  b4: S.b4,
+  b5: S.b5,
+  b6: S.b6,
+  b7Circular: S.b7circular,
+  b7Waste: S.b7waste,
+  b7Materials: S.b7materials,
+  b8: S.b8,
+  b8Countries: S.b8countries,
+  b9: S.b9,
+  b10: S.b10,
+  b10b: S.b10b,
+  b11: S.b11,
+  c1: S.c1,
+  c2: S.c2,
+  c3: S.c3targets,
+  c3Transition: S.c3transition,
+  c4: S.c4,
+  c5: S.c5,
+  c6: S.c6,
+  c7: S.c7own,
+  c8: S.c8,
+  c9: S.c9,
+};
+
+/** Skabelonens indholdsslides (B1–C9), dvs. dem med vejledning, der skal ryddes op */
+const isContentSlide = (no: number) => no >= S.b1 && no <= S.c9 && no !== S.cDivider;
+
+const titleOf = (slide: Slide) => {
+  const t = shapes(slide).find((x) => first(x, NS.p, "ph")?.getAttribute("type") === "title");
+  return (t ? shapeText(t) : "").replace(/\s+/g, " ").replace(/\s*[–-]\s*fortsat\s*$/i, "").trim();
+};
 const SLIDE_BOTTOM = inch(7.0);
 const CONTINUATION_TOP = inch(1.11);
 
@@ -102,22 +161,6 @@ function bottomLimit(slide: Slide, table: Table): number {
     .map(({ f: g }) => g!.y);
   // Skabelonens egen tabel må altid stå, hvor den står (nogle går helt ned til sidefoden)
   return Math.max(Math.min(SLIDE_BOTTOM, ...below) - inch(0.08), f.y + f.h);
-}
-
-/** Skønnet rækkehøjde ud fra tekstmængde (9 pkt. ≈ 15 tegn pr. tomme, 0,17" pr. linje) */
-function estimateRowHeight(tr: Element, colWidths: number[]): number {
-  const declared = Number(tr.getAttribute("h") ?? 0);
-  // Flettede celler (gridSpan) får bredden af alle de kolonner, de dækker
-  const lines = children(tr, NS.a, "tc").map((tc, i) => {
-    if (tc.getAttribute("hMerge") === "1" || tc.getAttribute("vMerge") === "1") return 1;
-    const span = Number(tc.getAttribute("gridSpan") ?? 1);
-    const w = colWidths.slice(i, i + span).reduce((s, x) => s + x, 0) / EMU_PER_INCH || 2;
-    const perLine = Math.max(8, Math.floor(w * 15));
-    return textOf(tc)
-      .split("\n")
-      .reduce((s, l) => s + Math.max(1, Math.ceil(l.length / perLine)), 0);
-  });
-  return Math.max(declared, inch(0.08) + Math.max(1, ...lines) * inch(0.17));
 }
 
 type Element = ReturnType<typeof children>[number];
@@ -264,7 +307,12 @@ function fillContents(pptx: Pptx, slide: Slide, sections: { title: string; slide
 
 const LEFTOVER = /\[(Indsæt|indsæt|Sæt kryds|JA\/NEJ|Antal personer|fx |Type af|Materiale|Land |Handling|Angiv|Beskriv|lav\/|0-1|Udfyldes)[^\]]*\]/;
 
-export async function fillEsgTemplate(template: Buffer | Uint8Array, m: ExportModel, logo?: Logo | null): Promise<{ buffer: Buffer; leftovers: string[] }> {
+export async function fillEsgTemplate(
+  template: Buffer | Uint8Array,
+  m: ExportModel,
+  logo?: Logo | null,
+  extras?: TemplateExtras | null,
+): Promise<{ buffer: Buffer; leftovers: string[] }> {
   const pptx = await Pptx.load(template);
   const at = (no: number) => pptx.byTemplate(no);
 
@@ -292,6 +340,10 @@ export async function fillEsgTemplate(template: Buffer | Uint8Array, m: ExportMo
   pptx.remove(...drop.map(at));
   // Scope 3 præsenteres sammen med scope 1 og 2 (VS pkt. 52)
   if (at(S.scope3)) pptx.move(at(S.scope3)!, at(S.b3ghg)!);
+
+  // Vejledningen til den, der udfylder skabelonen, fjernes. Indholdet rykkes først op efter
+  // udfyldningen, så tabellerne har skabelonens fulde plads, før de evt. deles over flere sider.
+  for (const s of pptx.slides) if (isContentSlide(s.templateNo)) stripGuidance(s);
 
   const year = String(m.year);
 
@@ -416,17 +468,6 @@ export async function fillEsgTemplate(template: Buffer | Uint8Array, m: ExportMo
     if (tp) setParagraphText(tp, "CO₂e-udledning i scope 3 (B3)");
     const find = (sl: Slide) => tableWith(sl, "tilføjes til tabel i pkt. 33");
     const t = find(s3);
-    // Den lange vejledning ("Overvej, om …") er til den, der udfylder: fjernes med sine ikoner, og tabellen rykker op
-    const guide = shapes(s3).find((x) => shapeText(x).startsWith("Overvej, om CO₂e-udledning i scope 3"));
-    const box = guide && frame(guide);
-    if (guide && box) {
-      for (const x of shapes(s3)) {
-        const f = frame(x);
-        if (x.localName === "pic" && f && f.x >= box.x && f.y >= box.y && f.x + f.w <= box.x + box.w && f.y + f.h <= box.y + box.h) removeShape(x);
-      }
-      removeShape(guide);
-      moveShape(t.frame, box.y - frame(t.frame)!.y);
-    }
     const limit = bottomLimit(s3, t);
     t.fillRows(1, 1, [["CO₂e-udledninger i scope 3", `${m.scope3.total} t CO₂e`], ...m.scope3.categories.map((c) => [`   ${c.label}`, `${c.value} t CO₂e`])]);
     t.set(t.rows.length - 1, 0, "Total CO₂e-udledning for scope 1, 2 og 3 (scope 2 lokationsbaseret)");
@@ -659,6 +700,58 @@ export async function fillEsgTemplate(template: Buffer | Uint8Array, m: ExportMo
     if (c9 && m.c9) tableWith(c9, "pkt. 64").set(1, 1, m.c9);
   }
 
+  // 3b. Afsnitskommentarer, billeder og de valgfrie ekstra sider
+  const content = extras?.content ?? {};
+  const pictures = (slot: string) => extras?.pictures[slot] ?? [];
+  const source = at(S.b11)!;
+  for (const [key, no] of Object.entries(SECTION_SLIDES) as [SectionKey, number][]) {
+    const s = at(no);
+    if (!s) continue;
+    // Originalen og evt. "– fortsat"-kopier
+    const group = pptx.slides.filter((x) => x.templateNo === no);
+    group.forEach((x) => compact(x));
+    const comment = content.sections?.[key]?.trim();
+    let last = group[group.length - 1];
+    let placed = false;
+    if (comment) {
+      const col = freeRightColumn(s);
+      const ps = paragraphs(comment);
+      const h = textHeight(ps, col.w / EMU_PER_INCH - 0.3, 10) + inch(0.2);
+      if (col.w >= inch(2.4) && h <= col.h) {
+        addText(s, { ...col, h }, ps, { size: 10, fill: "E8ECEA", inset: inch(0.15) });
+        placed = true;
+      }
+    }
+    for (const x of group) if (!(placed && x === s)) widenTables(x);
+    const title = titleOf(s);
+    if (comment && !placed) last = await textPages(pptx, source, last, `${title} – kommentar`, comment);
+    if (pictures(`section:${key}`).length) await picturePages(pptx, source, last, title, pictures(`section:${key}`));
+  }
+
+  // Forrest: forord, om virksomheden og ledelsesoversigt (efter forsiden, før indholdsfortegnelsen)
+  {
+    let anchor = cover;
+    if (content.foreword || pictures("foreword").length) anchor = await textPages(pptx, source, anchor, "Forord", content.foreword ?? "", pictures("foreword"));
+    if (content.about || pictures("about").length) anchor = await textPages(pptx, source, anchor, `Om ${m.companyName}`, content.about ?? "", pictures("about"));
+    if (extras?.summary) await summaryPage(pptx, source, anchor, extras.summary, content.summary ?? {});
+  }
+
+  // Bagerst: kommentarer til opgørelsen og bilag (før afslutningssliden)
+  const back: { title: string; slide: Slide | undefined }[] = [];
+  {
+    const firstAfter = (before: Slide) => pptx.slides[pptx.slides.indexOf(before) + 1];
+    let anchor = end ? pptx.slides[pptx.slides.indexOf(end) - 1] : pptx.slides[pptx.slides.length - 1];
+    if (content.closing) {
+      const before = anchor;
+      anchor = await textPages(pptx, source, anchor, "Kommentarer til opgørelsen", content.closing);
+      back.push({ title: "Kommentarer til opgørelsen", slide: firstAfter(before) });
+    }
+    if (pictures("appendix").length) {
+      await appendixPages(pptx, source, anchor, pictures("appendix"));
+      back.push({ title: "Bilag", slide: firstAfter(anchor) });
+    }
+  }
+
   // 4. Fælles pladsholdere på alle slides
   for (const s of pptx.slides) {
     // Tabelstilens fede sidste række bruges kun til totaler
@@ -700,6 +793,7 @@ export async function fillEsgTemplate(template: Buffer | Uint8Array, m: ExportMo
             { title: "Kønsfordeling i øverste ledelsesorgan (C9)", slide: at(S.c9) },
           ]
         : []),
+      ...back,
     ];
     fillContents(pptx, contents, sections);
   }
@@ -713,13 +807,29 @@ export async function fillEsgTemplate(template: Buffer | Uint8Array, m: ExportMo
     }
   }
 
-  // 7. Tjek for glemte pladsholdere
+  // 7. Kundens design: forsidefoto og farve
+  if (extras?.cover) await setCoverPhoto(pptx, cover, extras.cover, SLIDE_SIZE);
+  if (extras?.brandColor) {
+    const palette = brandPalette(extras.brandColor);
+    const recolor = (doc: Slide["doc"]) => {
+      for (const c of descendants(doc, NS.a, "srgbClr")) {
+        const to = palette[(c.getAttribute("val") ?? "").toUpperCase()];
+        if (to) c.setAttribute("val", to);
+      }
+    };
+    for (const s of pptx.slides) recolor(s.doc);
+    for (const part of [...pptx.partNames("ppt/slideLayouts/"), ...pptx.partNames("ppt/slideMasters/"), ...pptx.partNames("ppt/theme/")]) {
+      if (!part.includes("/_rels/")) await pptx.editXml(part, recolor);
+    }
+  }
+
+  // 8. Tjek for glemte pladsholdere og vejledning
   const leftovers: string[] = [];
   for (const [i, s] of pptx.slides.entries()) {
     for (const p of descendants(s.doc, NS.a, "p")) {
       const t = descendants(p, NS.a, "t").map((x) => x.textContent ?? "").join("");
-      const hit = t.match(LEFTOVER);
-      if (hit) leftovers.push(`Slide ${i + 1}: ${hit[0]}`);
+      const hit = t.match(LEFTOVER) ?? t.match(GUIDANCE);
+      if (hit) leftovers.push(`Slide ${i + 1}: ${hit[0].trim()}`);
     }
   }
 

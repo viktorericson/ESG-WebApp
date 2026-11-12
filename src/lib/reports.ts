@@ -30,3 +30,11 @@ export async function createDefaultReport(orgId: string, periodId: string, year:
   });
 }
 
+
+/** Rapporten året før med samme rapporterende selskab – kilde til "Hent tekster fra sidste år" */
+export async function previousReportFor(report: { id: string; reportingCompanyId: string; period: { organizationId: string; year: number } }) {
+  return db.report.findFirst({
+    where: { reportingCompanyId: report.reportingCompanyId, period: { organizationId: report.period.organizationId, year: report.period.year - 1 } },
+    orderBy: { updatedAt: "desc" },
+  });
+}

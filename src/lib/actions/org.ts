@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { audit } from "@/lib/audit";
+import { contrastWithWhite, MIN_CONTRAST, normalizeHex } from "@/lib/brand";
 import { requireOrgAccess, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { env, showDevLinks } from "@/lib/env";
@@ -355,4 +356,22 @@ export async function acceptInvitation(_prev: ActionState, fd: FormData): Promis
 
   await createSession(user.id);
   redirect(`/org/${inv.organizationId}`);
+}
+
+// ---------- Rapportfarve ----------
+
+export async function setBrandColor(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const orgId = str(fd, "orgId");
+  const { user, access } = await requireOrgAccess(orgId);
+  if (!access.canManageOrg) return NO_ACCESS;
+  const reset = fd.get("reset") === "1";
+  const hex = reset ? null : normalizeHex(str(fd, "brandColor"));
+  if (!reset && !hex) return { fieldErrors: { brandColor: "Angiv en farve som hex-kode, fx #1B4528" } };
+  if (hex && contrastWithWhite(hex) < MIN_CONTRAST) {
+    return { fieldErrors: { brandColor: `Farven er for lys til hvid tekst (kontrast ${contrastWithWhite(hex).toFixed(1)}:1, mindst ${MIN_CONTRAST}:1). Vælg en mørkere nuance.` } };
+  }
+  await db.organization.update({ where: { id: orgId }, data: { brandColor: hex } });
+  await audit({ organizationId: orgId, userId: user.id, action: "organization.brand", entityType: "Organization", entityId: orgId, data: { brandColor: hex } });
+  refresh(orgId);
+  return { ok: hex ? "Rapportfarven er gemt." : "Rapporterne bruger igen skabelonens grønne farve." };
 }

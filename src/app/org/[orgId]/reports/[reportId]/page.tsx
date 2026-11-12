@@ -8,9 +8,18 @@ import { deleteReport, setReportStatus, updateReport } from "@/lib/actions/repor
 import { deny, requireOrgAccess } from "@/lib/auth";
 import { GroupKpis, PolicyMatrix, ReportStatus } from "@/components/report-overview";
 import { db } from "@/lib/db";
+import { readContent, type ReportContent } from "@/lib/report-content";
 import { REPORT_BASIS_LABELS, REPORT_MODULE_LABELS } from "@/lib/validation";
 
 const dateFmt = new Intl.DateTimeFormat("da-DK", { dateStyle: "medium" });
+
+/** Kort status for rapportens tekster og billeder, fx "Forord, ledelsesoversigt · 4 kommentarer · 2 billeder" */
+function contentSummary(c: ReportContent, images: number): string {
+  const parts = [c.foreword && "forord", c.about && "kernefortælling", c.summary?.show !== false && "ledelsesoversigt", c.closing && "afslutning"].filter(Boolean) as string[];
+  const sections = Object.keys(c.sections ?? {}).length;
+  const out = [parts.join(", "), sections && `${sections} ${sections === 1 ? "kommentar" : "kommentarer"}`, images && `${images} ${images === 1 ? "billede" : "billeder"}`].filter(Boolean).join(" · ");
+  return out ? out.charAt(0).toUpperCase() + out.slice(1) : "Forord, kommentarer, billeder og bilag";
+}
 
 export default async function ReportPage({ params }: PageProps<"/org/[orgId]/reports/[reportId]">) {
   const { orgId, reportId } = await params;
@@ -40,6 +49,7 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
   });
   const notApproved = included.filter((c) => !approvedSubs.some((a) => a.companyId === c.id));
   const pdfAvailable = sofficePath() !== null;
+  const imageCount = await db.reportImage.count({ where: { reportId: report.id } });
 
   return (
     <>
@@ -84,8 +94,15 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
           <Card className="p-5">
             <h3 className="text-sm font-semibold">Eksportér rapport</h3>
             <p className="mt-1 text-xs text-neutral-500">
-              Erhvervsstyrelsens ESG-skabelon udfyldt med rapportens data{report.status !== "APPROVED" && ". Rapporten er ikke godkendt, så forsiden er mærket “Udkast”"}.
+              Erhvervsstyrelsens ESG-skabelon udfyldt med rapportens data og jeres tekster og billeder{report.status !== "APPROVED" && ". Rapporten er ikke godkendt, så forsiden er mærket “Udkast”"}.
             </p>
+            <Link href={`/org/${orgId}/reports/${report.id}/content`} className="mt-3 flex items-center justify-between rounded-md border border-neutral-200 px-3 py-2 text-sm hover:bg-neutral-50">
+              <span>
+                <span className="font-medium">Rapportindhold</span>
+                <span className="block text-xs text-neutral-500">{contentSummary(readContent(report.content), imageCount)}</span>
+              </span>
+              <span aria-hidden className="text-neutral-400">→</span>
+            </Link>
             <div className="mt-3 flex flex-wrap gap-2">
               <a href={`/api/reports/${report.id}/export?format=pptx`} download className={buttonStyles.primary}>
                 PowerPoint
@@ -105,7 +122,7 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
               {access.canManageOrg && (
                 <>
                   {" "}
-                  <Link href={`/org/${orgId}/settings`} className="text-brand-700 hover:underline">Logo til rapporter →</Link>
+                  <Link href={`/org/${orgId}/settings`} className="text-brand-700 hover:underline">Logo, farve og forsidefoto →</Link>
                 </>
               )}
             </p>

@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@/generated/prisma/client";
 import { audit } from "@/lib/audit";
 import { requireOrgAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { resolveIncluded, type CompanyNode } from "@/lib/report-scope";
-import { orgCompanies } from "@/lib/reports";
+import { compactContent, readContent, reportContentSchema, type ReportContent } from "@/lib/report-content";
+import { orgCompanies, previousReportFor } from "@/lib/reports";
 import { fieldErrors, reportSchema, reportStatuses, type ActionState } from "@/lib/validation";
 
 const NO_ACCESS: ActionState = { error: "Du har ikke adgang til at udføre denne handling." };
@@ -93,4 +95,48 @@ export async function deleteReport(_prev: ActionState, fd: FormData): Promise<Ac
   await audit({ organizationId: orgId, userId: user.id, action: "report.delete", entityType: "Report", entityId: report.id, data: { name: report.name } });
   revalidatePath(`/org/${orgId}`, "layout");
   redirect(`/org/${orgId}/reports`);
+}
+
+// ---------- Rapportindhold (tekster) ----------
+
+export type ContentSaveResult = { ok: true; savedAt: string } | { ok: false; error: string };
+
+async function editableReport(orgId: string, reportId: string) {
+  const { user, access } = await requireOrgAccess(orgId);
+  if (!access.canManageOrg) return { error: "Du har ikke adgang til at redigere rapportens indhold." } as const;
+  const report = await db.report.findFirst({ where: { id: reportId, period: { organizationId: orgId } }, include: { period: true } });
+  if (!report) return { error: "Rapporten findes ikke." } as const;
+  if (report.status === "APPROVED") return { error: "Rapporten er godkendt, så indholdet er låst." } as const;
+  return { user, report } as const;
+}
+
+/** Autosave af rapportens tekster */
+export async function saveReportContent(input: { orgId: string; reportId: string; content: unknown }): Promise<ContentSaveResult> {
+  const r = await editableReport(input.orgId, input.reportId);
+  if ("error" in r) return { ok: false, error: r.error! };
+  const parsed = reportContentSchema.safeParse(input.content);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ugyldigt indhold" };
+  const row = await db.report.update({ where: { id: r.report.id }, data: { content: compactContent(parsed.data) as Prisma.InputJsonObject } });
+  return { ok: true, savedAt: row.updatedAt.toISOString() };
+}
+
+/** Kopierer teksterne fra året før. Eksisterende tekster overskrives kun, hvor sidste år har en tekst. */
+export async function copyContentFromPrevious(input: { orgId: string; reportId: string }): Promise<ContentSaveResult & { content?: ReportContent }> {
+  const r = await editableReport(input.orgId, input.reportId);
+  if ("error" in r) return { ok: false, error: r.error! };
+  const prev = await previousReportFor({ ...r.report, period: r.report.period });
+  if (!prev) return { ok: false, error: `Der er ingen rapport for ${r.report.period.year - 1} at hente tekster fra.` };
+  const old = readContent(prev.content);
+  const cur = readContent(r.report.content);
+  const merged = compactContent({
+    foreword: old.foreword || cur.foreword,
+    about: old.about || cur.about,
+    summary: { show: cur.summary?.show ?? old.summary?.show ?? true, environment: old.summary?.environment || cur.summary?.environment, social: old.summary?.social || cur.summary?.social, governance: old.summary?.governance || cur.summary?.governance },
+    sections: { ...cur.sections, ...old.sections },
+    closing: old.closing || cur.closing,
+  });
+  const row = await db.report.update({ where: { id: r.report.id }, data: { content: merged as Prisma.InputJsonObject } });
+  await audit({ organizationId: input.orgId, userId: r.user.id, action: "report.content.copy", entityType: "Report", entityId: r.report.id, data: { from: prev.id } });
+  revalidatePath(`/org/${input.orgId}/reports/${r.report.id}`, "layout");
+  return { ok: true, savedAt: row.updatedAt.toISOString(), content: merged };
 }
