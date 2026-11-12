@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="da" data-type="software" data-radius="soft" data-ground="sky" data-buttons="tonal" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>esgBRICKS: ESG-rapportering for danske SMV'er</title>
+<meta name="description" content="Vi samler jeres data, beregner CO₂e og laver jeres årlige ESG-rapport efter VS-standarden for en fast pris om året.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="esgBRICKS: ESG-rapportering for danske SMV'er">
+<meta property="og:description" content="Jeres årlige ESG-rapport efter VS-standarden, lavet for jer i esgBRICKS.">
+<meta property="og:image" content="share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#f6f7f6">
+<!-- <link rel="canonical" href="https://www.esgbricks.com/"> : sat ind, når domænet er bekræftet -->
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@400..700&family=Funnel+Sans:wght@400..600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
+<style>
+:root {
+  --p-bg: #f6f7f6; --p-surface: #eef7f1; --p-ink: #1b1f1c; --p-muted: #5b635d;
+  --p-accent: #247247; --p-accent-ink: #f6f7f6; --p-action: #247247; --p-action-ink: #f6f7f6;
+  /* the inverse ground is the app's own darkest green (brand-900), so the dark band stays in the tool's theme */
+  --p-inv-bg: #123823; --p-inv-surface: #1b4a30; --p-inv-ink: #f6f7f6; --p-inv-muted: #a9c2b1;
+  --p-inv-accent: #f6f7f6; --p-inv-accent-ink: #123823; --p-inv-action: #f6f7f6; --p-inv-action-ink: #123823;
+  --font-display: "Funnel Display", system-ui, sans-serif;
+  --font-text: "Funnel Sans", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 400;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.04em;
+  --ly-scale: 0.98;
+}
+</style>
+<link rel="stylesheet" href="assets/ui/base.css">
+<link rel="stylesheet" href="assets/ui/window/fragment.css">
+<link rel="stylesheet" href="assets/ui/doc/fragment.css">
+<link rel="stylesheet" href="assets/ui/files/fragment.css">
+<link rel="stylesheet" href="assets/ui/checklist/fragment.css">
+<link rel="stylesheet" href="assets/ui/stat/fragment.css">
+<link rel="stylesheet" href="assets/ui/notify/fragment.css">
+<link rel="stylesheet" href="assets/ui/calendar/fragment.css">
+<link rel="stylesheet" href="assets/diagrams/diagram.css">
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/word-highlight/moment.js">
+<style>
+  /* Sections are as tall as their content with one even gap, not one or two whole screens
+     (a deliberate departure from the kit's one-section-per-screen rule, asked for by the client).
+     The hero keeps its full first screen. */
+  main > section.section:not(.hero, .section--hero), footer.closing.footer { --padt: 96px; --padb: 96px; height: auto; min-height: 0; }
+  main > section.section:not(.hero, .section--hero) > .wrap, footer.closing.footer > .wrap { height: auto; }
+  footer.closing { --padb: 48px; }
+  footer.closing .close__word { margin-top: var(--s-8); }
+  html { scroll-padding-top: var(--nav); }
+  /* on a phone the hero picture is short: the float card would cover the second row of files */
+  @media (max-width: 639px) { .hero--split .ly-float { display: none; } }
+  /* the app window took "the rest of the screen" (.fill); with sections sized by content it needs its own height */
+  #platform .app.fill { flex: none; height: 560px; }
+  @media (max-width: 1023px) { #platform .app.fill { height: 620px; } }
+  @media (max-width: 639px) { #platform .app.fill { height: 460px; } }
+  @media (max-width: 639px) {
+    main > section.section:not(.hero, .section--hero), footer.closing.footer { --padt: 64px; --padb: 64px; min-height: 0; }
+    footer.closing { --padb: 32px; }
+    footer.closing .close__word { margin-top: var(--s-7); }
+  }
+  /* the app-frame recipe (sections-library.md, app-frame) */
+  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); }
+  .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
+  .app > .app__pane > .ui-panel { width: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  .app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px; background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; }
+  .app .ui-doc { padding: var(--s-6); }
+  @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); } }
+  @media (max-width: 1023px) {
+    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .app > .app__pane--list { max-height: 252px; }
+    .app > .app__pane--list::after { display: none; }
+    .app .ui-win__side { display: none; }
+    .app .ui-win__body { grid-template-columns: minmax(0, 1fr); }
+    .app > .app__pane + .app__pane { border-left: 0; border-top: 1px solid var(--u-line); }
+  }
+  @media (max-width: 639px) {
+    .app.ui { grid-template-rows: minmax(0, 1fr); }
+    .app > .app__pane--list { display: none; }
+    .app > .app__pane + .app__pane { border-top: 0; }
+  }
+  /* one panel height for the steps group */
+  #proces .panel { --p-h: 336px; }
+  @media (max-width: 639px) { #proces .panel { --p-h: 220px; } }
+  /* the diagram frame on the dark band */
+  #hvorfor .frame { aspect-ratio: 5 / 4; }
+  @media (max-width: 1023px) { #hvorfor .frame { aspect-ratio: 16 / 9; } }
+  /* the pricing intro column: the page's split pair, text on four columns */
+  #priser .pricing__head { grid-column: auto / span 4; }
+  @media (max-width: 1023px) { #priser .pricing__head { grid-column: 1 / -1; } }
+  /* the name across the wrap, hand-set per breakpoint */
+  .close__word { font-size: clamp(56px, 11vw, 168px); line-height: 1; padding-bottom: .16em; }
+  @media (max-width: 639px) { .close__word { font-size: 52px; } }
+  /* the client's logo (esg in ink, BRICKS in the site green; the light file on the dark footer) */
+  /* the file has a transparent margin on its left: pull the letters onto the page's left line */
+  .nav__logo .brand-logo { display: block; width: auto; height: 36px; margin-left: -6px; }
+  @media (max-width: 639px) { .nav__logo .brand-logo { height: 30px; margin-left: -5px; } }
+  .close__word-accent { color: #8fd1a9; }
+  /* two-screen sections where the stacked content needs them */
+  @media (min-width: 640px) and (max-width: 1023px) {
+    #priser .card--plan { grid-column: auto / span 6; }
+  }
+  #priser .plan__files { display: flex; gap: var(--s-2); }
+  #priser .plan__files img { width: 32px; height: 32px; }
+  /* the calendar under the booking text: a flat panel, the fragment cut by its foot */
+  #book .frame { height: 320px; background: var(--g-alt); border-radius: var(--r-lg); position: relative; overflow: hidden; }
+</style>
+</head>
+<body>
+<!-- type: software (an ESG reporting service run in its own platform, esgBRICKS)
+     deal: hero split, nav nav-mega, close close-word, footer footer-dark, rhythm dark-band, buttons tonal, mark arc,
+           grounds none, effect fluted-glass in the hero frame, card grounds silk-folds (sage palette: the app's green theme)
+     palette: the tool's own theme by request (start.mjs brand): ground #f6f7f6, ink #1b1f1c, accent #247247
+     moments: word-highlight in #partner (its own statement section) -->
+
+<header class="nav">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Gå til indhold</a>
+    <a class="nav__logo" href="#top"><img class="brand-logo" src="logo.png" alt="esgBRICKS, powered by Capana" width="168" height="36"></a>
+    <nav class="nav__links" aria-label="Hovedmenu">
+      <div class="nav__item">
+        <a class="nav__link" href="#platform">Platform <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <div class="nav__menu">
+          <div class="wrap grid">
+            <div class="menu-col span-3">
+              <p class="t-label">Indrapportering</p>
+              <a href="#platform">Moduler B1 til B11<span>Hele basismodulet</span></a>
+              <a href="#platform">Lokationer<span>Energi, vand og affald pr. sted</span></a>
+              <a href="#proces">Dokumentation<span>Bilag ved hvert felt</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">Beregning og rapport</p>
+              <a href="#proces">Klimaregnskab<span>Scope 1, 2 og 3 i CO₂e</span></a>
+              <a href="#platform">Konsolidering<span>Hele koncernen i én rapport</span></a>
+              <a href="#proces">Eksport<span>PowerPoint og PDF</span></a>
+            </div>
+            <a class="menu-card span-3 start-10" href="#priser">
+              <div class="panel" data-fx="silk-folds" data-fx-seed="31" data-fx-palette='{"bg":"#cdd6c6","surface":"#dce3d6","ink":"#262d24","accent":"#6c8e63"}' data-fx-params='{"drift":0,"speed":0}'>
+                <div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:24px">
+                  <div class="ui ui-notify" data-ui="notify">
+                    <ul class="ui-notify__list" data-notify-list>
+                      <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">PCF klar<time>nu</time></span><span class="ui-note__body">Palle, standard 1200 × 800</span></span></li>
+                    </ul>
+                  </div>
+                </div></div>
+              </div>
+              <span class="t-card">Klimaregnskab for produkter</span>
+              <span class="t-small muted">CO₂e på det, I leverer</span>
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" href="#proces">Proces</a></div>
+      <div class="nav__item"><a class="nav__link" href="#priser">Priser</a></div>
+      <div class="nav__item"><a class="nav__link" href="#hvorfor">Hvorfor</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="nav__link" href="/login">Log ind</a>
+      <a class="btn btn--primary" href="#book">Book et opkald</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--split" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text grid hero__grid">
+      <div class="hero__text span-5">
+        <p class="hero__kicker"><span class="dot" aria-hidden="true"></span>Efter VS-standarden, den tidligere VSME</p>
+        <h1 id="hero-h">ESG-rapportering for danske SMV'er</h1>
+        <p class="hero__lead">Vi samler jeres data, beregner CO₂e med Klimakompassets faktorer og leverer den færdige ESG-rapport. 14.999 kr. om året ekskl. moms.</p>
+        <div class="btn-row"><a class="btn btn--primary" href="#book">Book et opkald<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a><a class="btn btn--secondary" href="#priser">Se priserne</a></div>
+      </div>
+      <div class="hero__media span-6 start-7" data-fx="fluted-glass" data-fx-seed="11" role="img" aria-label="Den færdige ESG-opgørelse for 2025 som PowerPoint og PDF, med klimaregnskab og bilag">
+        <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:560px;--ax:max(24px, 50% - 280px);--ay:48px;--ay-sm:24px">
+          <div class="ui ui-files" data-ui="files" data-reading="Samler {n} af {total}">
+            <div class="ui-files__status"><span class="ui-dot"></span><span data-files-status>6 filer klar</span></div>
+            <ul class="ui-files__grid">
+              <li class="ui-file is-done"><span class="ui-file__icon"><img data-icon="pptx" src="assets/icons/pptx.svg" alt="" width="24" height="24"></span><span class="ui-file__name">ESG-opgørelse 2025</span><span class="ui-file__kind">PowerPoint</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+              <li class="ui-file is-done"><span class="ui-file__icon"><img data-icon="pdf" src="assets/icons/pdf.svg" alt="" width="24" height="24"></span><span class="ui-file__name">ESG-opgørelse 2025</span><span class="ui-file__kind">PDF</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+              <li class="ui-file is-done"><span class="ui-file__icon"><img data-icon="xlsx" src="assets/icons/xlsx.svg" alt="" width="24" height="24"></span><span class="ui-file__name">Klimaregnskab</span><span class="ui-file__kind">Scope 1, 2 og 3</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+              <li class="ui-file is-done"><span class="ui-file__icon"><img data-icon="docx" src="assets/icons/docx.svg" alt="" width="24" height="24"></span><span class="ui-file__name">Politikregister</span><span class="ui-file__kind">B2</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+              <li class="ui-file is-done"><span class="ui-file__icon"><img data-icon="pdf" src="assets/icons/pdf.svg" alt="" width="24" height="24"></span><span class="ui-file__name">Elregninger 2025</span><span class="ui-file__kind">Bilag</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+              <li class="ui-file is-done"><span class="ui-file__icon"><img data-icon="xlsx" src="assets/icons/xlsx.svg" alt="" width="24" height="24"></span><span class="ui-file__name">Kørselsregnskab</span><span class="ui-file__kind">Bilag</span><span class="ui-file__bar"><i></i></span><span class="ui-file__check"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 8.2 2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+            </ul>
+          </div>
+        </div></div>
+        <div class="ly-float">
+          <div class="ly-float__row"><span class="ly-live">Godkendt</span><span>B+C</span></div>
+          <div class="ly-float__title">ESG-opgørelse 2025, konsolideret</div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section" id="platform" aria-labelledby="platform-h">
+    <div class="wrap">
+      <div class="grid">
+        <h2 class="span-5" id="platform-h">Hele ESG-rapporten i én platform</h2>
+        <div class="span-6 start-7 stack-4">
+          <p>Hvert selskab og hver lokation har sine moduler. I kan følge status undervejs, og vi samler koncernen i én konsolideret rapport.</p>
+          <a class="link" href="#proces">Se de tre trin</a>
+        </div>
+      </div>
+      <div class="ui app fill" role="img" aria-label="esgBRICKS med modulerne B1 til B11 for koncernens selskaber og lokationer, og modul B3 åbent med det beregnede Scope 1-tal for Lager Kolding" data-ui-pause-host>
+        <div class="app__pane app__pane--list">
+          <div class="ui ui-panel ui-win" data-ui="window" data-open="Mangler" data-work="I gang" data-done="Udfyldt">
+            <div class="ui-win__bar">
+              <span class="ui-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="ui-win__crumb">esgBRICKS <i>/</i> <b>ESG-opgørelse 2025</b></span>
+              <span class="ui-spacer"></span>
+              <span class="ui-win__search" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><span class="ui-win__ph">Søg</span><span class="ui-kbd">/</span></span>
+            </div>
+            <div class="ui-win__body">
+              <nav class="ui-win__side" aria-hidden="true">
+                <span class="ui-win__nav is-on"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M3 3.5h10v9H3z"/><path d="M3 7h10"/></svg>Moduler<em>14</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M3 13.5V5l5-2.5L13 5v8.5"/><path d="M6.5 13.5v-3h3v3"/></svg>Selskaber<em>4</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M8 14s4.5-4 4.5-7.5a4.5 4.5 0 0 0-9 0C3.5 10 8 14 8 14z"/><circle cx="8" cy="6.5" r="1.5"/></svg>Lokationer<em>9</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg>Godkendt</span>
+                <span class="ui-win__label">Rapporter</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Koncern</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Individuel</span>
+              </nav>
+              <div class="ui-win__main">
+                <div class="ui-win__cols" aria-hidden="true"><span>Selskab</span><span>Modul</span><span>Status</span><span>Ændret</span></div>
+                <ul class="ui-win__rows">
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">HH</span><span class="ui-win__who">Hansen Holding</span><span class="ui-win__sub">B1 Grundlag for rapporten</span><span class="ui-win__st is-done" data-st>Udfyldt</span><span class="ui-win__age">2 d</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">HH</span><span class="ui-win__who">Hansen Holding</span><span class="ui-win__sub">B2 Politikker og praksis</span><span class="ui-win__st is-done" data-st>Udfyldt</span><span class="ui-win__age">2 d</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">LK</span><span class="ui-win__who">Lager Kolding</span><span class="ui-win__sub">B3 Energi og drivhusgasser</span><span class="ui-win__st" data-st>Mangler</span><span class="ui-win__age">1 t</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">HT</span><span class="ui-win__who">Hansen Transport</span><span class="ui-win__sub">B3 Energi og drivhusgasser</span><span class="ui-win__st" data-st>Mangler</span><span class="ui-win__age">3 t</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">LK</span><span class="ui-win__who">Lager Kolding</span><span class="ui-win__sub">B6 Vand</span><span class="ui-win__st is-done" data-st>Udfyldt</span><span class="ui-win__age">5 t</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="5">VV</span><span class="ui-win__who">Værksted Vejle</span><span class="ui-win__sub">B7 Ressourcer og affald</span><span class="ui-win__st is-you" data-st>Mangler bilag</span><span class="ui-win__age">1 d</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">HT</span><span class="ui-win__who">Hansen Transport</span><span class="ui-win__sub">B8 Arbejdsstyrke</span><span class="ui-win__st is-done" data-st>Udfyldt</span><span class="ui-win__age">1 d</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">HH</span><span class="ui-win__who">Hansen Holding</span><span class="ui-win__sub">B9 Sundhed og sikkerhed</span><span class="ui-win__st is-done" data-st>Udfyldt</span><span class="ui-win__age">2 d</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">HH</span><span class="ui-win__who">Hansen Holding</span><span class="ui-win__sub">B10 Løn og overenskomst</span><span class="ui-win__st is-done" data-st>Udfyldt</span><span class="ui-win__age">3 d</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">HH</span><span class="ui-win__who">Hansen Holding</span><span class="ui-win__sub">B11 Korruption og bestikkelse</span><span class="ui-win__st is-done" data-st>Udfyldt</span><span class="ui-win__age">3 d</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app__pane app__pane--open" data-ui-loop>
+          <div class="ui ui-doc" data-ui="doc">
+            <article class="ui-doc__page">
+              <div class="ui-doc__label">B3 Energi og drivhusgasser · Lager Kolding</div>
+              <div class="ui-doc__title">Scope 1: direkte udledninger</div>
+              <div class="ui-doc__text">Lageret har brugt <mark class="ui-doc__mark is-on">81.300 liter diesel</mark> til egne lastbiler og trucks i 2025.</div>
+              <div class="ui-doc__text">Naturgas til opvarmning er <mark class="ui-doc__mark" data-kind="Bilag" data-msg="Årsopgørelsen for december mangler." data-where="Gasregninger 2025">14.200 m³</mark> ifølge forsyningens opgørelse.</div>
+              <div class="ui-doc__text">Der er ikke fyldt kølemiddel på anlæggene i året. Selskabet ejer bygningen og driver lageret selv.</div>
+              <div class="ui-doc__text">Elforbruget på 412 MWh tælles i Scope 2 under modulets næste afsnit, med og uden oprindelsesgarantier.</div>
+              <div class="ui-doc__text">Data er indtastet af driftslederen og gennemgået af esgBRICKS, før selskabet sender modulet til godkendelse.</div>
+              <div class="ui-doc__text">Tallene indgår i den konsoliderede opgørelse for koncernen og i CO₂e-intensiteten pr. mio. kr. omsætning.</div>
+            </article>
+            <aside class="ui-doc__note ui-panel is-on" aria-live="polite">
+              <div class="ui-doc__kind"><span class="ui-doc__dot"></span><span data-doc-kind>Beregnet</span></div>
+              <div class="ui-doc__msg" data-doc-msg>212,4 t CO₂e med Klimakompassets faktor for diesel.</div>
+              <div class="ui-doc__where" data-doc-where>Kørselsregnskab 2025</div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section statement" id="partner" data-moment="word-highlight" aria-label="Jeres faste ESG-partner">
+    <div class="wrap">
+      <p class="t-label">Jeres faste ESG-partner</p>
+      <p class="mo-wh__text">I får ikke kun adgang til en platform. I får en fast partner, der lærer jeres virksomhed at kende og laver rapporten år efter år. Og I betaler kun, hvis I er <strong>tilfredse</strong> med rapporten.</p>
+    </div>
+  </section>
+
+  <section class="section" id="proces" aria-labelledby="proces-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="proces-h">Jeres ESG-rapport i 3 trin. <span class="muted">I leverer bilagene, vi gør resten.</span></h2>
+      </div>
+      <div class="grid">
+        <article class="card card--row card--open span-4 m-nolift">
+          <span class="step-num">1</span>
+          <h3>Vi samler jeres ESG-data</h3>
+          <p>Regninger, løndata og politikker lægges ind i platformen ved hvert felt.</p>
+          <div class="panel" data-fx="silk-folds" data-fx-seed="41" data-fx-palette='{"bg":"#cdd6c6","surface":"#dce3d6","ink":"#262d24","accent":"#6c8e63"}' data-fx-params='{"drift":0,"speed":0}'>
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:340px;--ax:max(24px, 50% - 170px);--ay:40px;--ay-sm:24px" data-ui-loop>
+              <div class="ui ui-panel ui-checks" data-ui="checklist">
+                <div class="ui-checks__head"><div class="ui-title">Bilag til 2025</div><span class="ui-spacer"></span><div class="ui-meta" data-checks-count>3 af 5</div></div>
+                <div class="ui-checks__bar"><i data-checks-bar style="--k:0.6"></i></div>
+                <ul class="ui-checks__list">
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Elregninger for 12 måneder</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Kørselsregnskab</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Antal ansatte og løn</span></li>
+                  <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Politik mod korruption</span></li>
+                  <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Affaldsopgørelse</span></li>
+                </ul>
+              </div>
+            </div></div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-4 m-nolift">
+          <span class="step-num">2</span>
+          <h3>Vi beregner jeres CO₂e</h3>
+          <p>Scope 1, 2 og 3 med Klimakompassets emissionsfaktorer for jeres rapporteringsår.</p>
+          <div class="panel" data-fx="silk-folds" data-fx-seed="42" data-fx-palette='{"bg":"#cdd6c6","surface":"#dce3d6","ink":"#262d24","accent":"#6c8e63"}' data-fx-params='{"drift":0,"speed":0}'>
+            <div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:40px">
+              <div class="ui ui-panel ui-stat" data-ui="stat" data-from="512" data-to="486" data-suffix=" t">
+                <div class="ui-stat__head">
+                  <div class="ui-stat__top"><span class="ui-stat__label">Scope 1 og 2, CO₂e</span><span class="ui-stat__range">2025<svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"/></svg></span></div>
+                  <div class="ui-stat__line"><span class="ui-stat__num" data-stat-num>486 t</span><span class="ui-chip ui-chip--plain ui-stat__delta"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2.5v7M3 6.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>5 %</span><span class="ui-stat__sub">mod 2024</span></div>
+                </div>
+                <div class="ui-stat__chart">
+                  <svg class="ui-stat__svg" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
+                    <path class="ui-stat__grid" d="M0 30.5H400M0 60.5H400M0 90.5H400"/>
+                    <path class="ui-stat__cover" fill-rule="evenodd" d=""/>
+                    <g class="ui-stat__bars"><rect rx="3" x="0.00" y="20" width="27" height="100"/><rect rx="3" x="34.0" y="26" width="27" height="94"/><rect rx="3" x="68.0" y="34" width="27" height="86"/><rect rx="3" x="102.0" y="48" width="27" height="72"/><rect rx="3" x="136.0" y="58" width="27" height="62"/><rect rx="3" x="170.0" y="66" width="27" height="54"/><rect rx="3" x="204.0" y="68" width="27" height="52"/><rect rx="3" x="238.0" y="64" width="27" height="56"/><rect rx="3" x="272.0" y="54" width="27" height="66"/><rect rx="3" x="306.0" y="42" width="27" height="78"/><rect rx="3" x="340.0" y="30" width="27" height="90"/><rect rx="3" x="373.0" y="24" width="27" height="96"/></g>
+                  </svg>
+                  <div class="ui-stat__axis" aria-hidden="true"><span>Jan</span><span>Jul</span><span>Dec</span></div>
+                </div>
+              </div>
+            </div></div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-4 m-nolift">
+          <span class="step-num">3</span>
+          <h3>I får den færdige rapport</h3>
+          <p>I Erhvervsstyrelsens ESG-skabelon som PowerPoint og PDF, klar til bank og hjemmeside.</p>
+          <div class="panel" data-fx="silk-folds" data-fx-seed="43" data-fx-palette='{"bg":"#cdd6c6","surface":"#dce3d6","ink":"#262d24","accent":"#6c8e63"}' data-fx-params='{"drift":0,"speed":0}'>
+            <div class="stage"><div class="at-rise fit" style="--fit-max:340px;--ax:max(24px, 50% - 170px);--ay:calc(100% - 180px);--ay-sm:calc(100% - 180px)">
+              <div class="ui ui-notify" data-ui="notify">
+                <ul class="ui-notify__list" data-notify-list>
+                  <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Rapport godkendt<time>nu</time></span><span class="ui-note__body">ESG-opgørelse 2025 er låst</span></span><span class="ui-btn ui-btn--sm ui-note__btn">Hent</span></li>
+                  <li class="ui-note"><span class="ui-avatar ui-note__av" data-tone="3">LK</span><span class="ui-note__text"><span class="ui-note__title">Lager Kolding indsendt<time>2 d</time></span><span class="ui-note__body">Alle fem lokationsmoduler</span></span></li>
+                  <li class="ui-note"><span class="ui-avatar ui-note__av" data-tone="4">HT</span><span class="ui-note__text"><span class="ui-note__title">Hansen Transport indsendt<time>3 d</time></span><span class="ui-note__body">Klar til gennemgang</span></span></li>
+                </ul>
+              </div>
+            </div></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--pricing" id="priser" aria-labelledby="priser-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="pricing__head stack-4">
+          <h2 id="priser-h">Priser på ESG-rapportering</h2>
+          <p>Platformen er med i prisen, så I hverken skal købe et andet ESG-system eller lære et nyt.</p>
+          <a class="link" href="#hvorfor">Se hvem rapporten er til</a>
+        </div>
+        <article class="card card--plan is-featured span-4 start-5">
+          <h3>ESG-rapportering</h3>
+          <p class="t-small muted">Til virksomheden, der skal dokumentere sit arbejde med bæredygtighed</p>
+          <p class="price">14.999 kr. <span class="t-small muted">om året ekskl. moms</span></p>
+          <a class="btn btn--secondary" href="#book">Spørg til ESG-rapporten</a>
+          <span class="plan__files"><img src="assets/icons/pptx.svg" alt="PowerPoint" width="32" height="32" loading="lazy"><img src="assets/icons/pdf.svg" alt="PDF" width="32" height="32" loading="lazy"><img src="assets/icons/xlsx.svg" alt="Excel" width="32" height="32" loading="lazy"></span>
+          <ul class="plan__list">
+            <li>Årlig ESG-rapport efter VS-standarden</li>
+            <li>Indsamling og struktur af jeres data</li>
+            <li>Klimaregnskab for Scope 1, 2 og 3</li>
+            <li>Selskaber og lokationer samlet</li>
+            <li>Rapport i PowerPoint og PDF</li>
+            <li>Vi følger ændringer i standarden</li>
+          </ul>
+        </article>
+        <article class="card card--plan span-4 start-9">
+          <h3>Klimaregnskab for produkter</h3>
+          <p class="t-small muted">Til virksomheden, hvis kunder vil have CO₂e-tal pr. produkt</p>
+          <p class="price">Pris efter aftale</p>
+          <a class="btn btn--secondary" href="#book">Spørg til en PCF</a>
+          <ul class="plan__list">
+            <li>CO₂e for et konkret produkt eller en leverance</li>
+            <li>Viser, hvor udledningerne opstår</li>
+            <li>Til tilbud og offentlige udbud</li>
+            <li>Færdig PCF-dokumentation</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section ground-inverse" id="hvorfor" aria-labelledby="hvorfor-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="span-5 stack-4">
+          <h2 id="hvorfor-h">ESG-data, som bank og kunder beder om</h2>
+          <p>Oplysningerne ligger spredt i regnskab, løndata og regninger. Vi samler dem i én rapport, I kan bruge her:</p>
+          <ul class="rows">
+            <li><span class="rows__name">Over for kunder og samarbejdspartnere</span></li>
+            <li><span class="rows__name">I dialogen med banken</span></li>
+            <li><span class="rows__name">I offentlige udbud</span></li>
+            <li><span class="rows__name">På jeres egen hjemmeside</span></li>
+          </ul>
+        </div>
+        <div class="frame span-6 start-7" data-visual>
+          <div class="dg" data-dg-still data-diagram='{"layout":"bowtie","motion":{"pulse":"none"},"alt":"Data fra regnskab, løndata og regninger samles i esgBRICKS og bruges over for banken, kunderne, i udbud og på hjemmesiden.","sources":[{"label":"Regnskab","icon":"ui:calculator","sub":"Omsætning"},{"label":"Løndata","icon":"ui:users","sub":"Ansatte"},{"label":"Regninger","icon":"ui:receipt","sub":"El, gas, vand"}],"core":{"label":"esgBRICKS","icon":"ui:file-text"},"targets":[{"label":"Banken","icon":"ui:landmark","sub":"Kredit"},{"label":"Kunder","icon":"ui:handshake","sub":"Leverandørkrav"},{"label":"Udbud","icon":"ui:clipboard-check","sub":"Tilbud"},{"label":"Hjemmeside","icon":"ui:globe","sub":"Offentliggørelse"}]}'></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--contact" id="book" aria-labelledby="book-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="span-5 stack-4">
+          <h2 id="book-h">Book et uforpligtende opkald</h2>
+          <p>Skriv jeres oplysninger og det tidspunkt, der passer jer. Så ringer vi og hører, hvad I skal bruge rapporten til.</p>
+          <div class="frame" data-visual role="img" aria-label="En kalender for november 2026 med et opkald om ESG-rapporten markeret den 18.">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:440px;--ax:max(24px, 50% - 220px);--ay:32px;--ay-sm:24px" data-ui-still>
+              <div class="ui ui-panel ui-calendar" data-ui="calendar" data-start="18" data-end="18" data-month="nov">
+                <div class="ui-cal__head">
+                  <div class="ui-cal__month">November <span>2026</span></div>
+                  <span class="ui-spacer"></span>
+                  <span class="ui-chip ui-chip--plain ui-chip--ink" data-cal-range>18. nov</span>
+                  <span class="ui-cal__nav" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M10 4 6 8l4 4"/></svg></span>
+                  <span class="ui-cal__nav" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m6 4 4 4-4 4"/></svg></span>
+                </div>
+                <div class="ui-cal__dow" aria-hidden="true"><span>Ma</span><span>Ti</span><span>On</span><span>To</span><span>Fr</span><span>Lø</span><span>Sø</span></div>
+                <div class="ui-cal__days">
+                  <span class="ui-cal__d is-out"><b>26</b></span><span class="ui-cal__d is-out"><b>27</b></span><span class="ui-cal__d is-out"><b>28</b></span><span class="ui-cal__d is-out"><b>29</b></span><span class="ui-cal__d is-out"><b>30</b></span><span class="ui-cal__d is-out"><b>31</b></span><span class="ui-cal__d" data-d="1"><b>1</b></span>
+                  <span class="ui-cal__d" data-d="2"><b>2</b></span><span class="ui-cal__d" data-d="3"><b>3</b></span><span class="ui-cal__d" data-d="4"><b>4</b></span><span class="ui-cal__d" data-d="5"><b>5</b></span><span class="ui-cal__d" data-d="6"><b>6</b></span><span class="ui-cal__d" data-d="7"><b>7</b></span><span class="ui-cal__d" data-d="8"><b>8</b></span>
+                  <span class="ui-cal__d" data-d="9"><b>9</b></span><span class="ui-cal__d" data-d="10"><b>10</b></span><span class="ui-cal__d is-today" data-d="11"><b>11</b></span><span class="ui-cal__d" data-d="12"><b>12</b></span><span class="ui-cal__d" data-d="13"><b>13</b></span><span class="ui-cal__d" data-d="14"><b>14</b></span><span class="ui-cal__d" data-d="15"><b>15</b></span>
+                  <span class="ui-cal__d" data-d="16"><b>16</b></span><span class="ui-cal__d" data-d="17"><b>17</b></span><span class="ui-cal__d is-mark" data-d="18"><b>18</b></span><span class="ui-cal__d" data-d="19"><b>19</b></span><span class="ui-cal__d" data-d="20"><b>20</b></span><span class="ui-cal__d" data-d="21"><b>21</b></span><span class="ui-cal__d" data-d="22"><b>22</b></span>
+                  <span class="ui-cal__d" data-d="23"><b>23</b></span><span class="ui-cal__d" data-d="24"><b>24</b></span><span class="ui-cal__d" data-d="25"><b>25</b></span><span class="ui-cal__d" data-d="26"><b>26</b></span><span class="ui-cal__d" data-d="27"><b>27</b></span><span class="ui-cal__d" data-d="28"><b>28</b></span><span class="ui-cal__d" data-d="29"><b>29</b></span>
+                </div>
+                <div class="ui-cal__events">
+                  <div class="ui-cal__ev" data-ev="18"><span class="ui-cal__date"><b>18</b><i>nov</i></span><span class="ui-cal__evtext"><span class="ui-cal__evtitle">Opkald om ESG-rapporten</span><span class="ui-cal__evsub">Vi ringer til jer</span></span></div>
+                </div>
+              </div>
+            </div></div>
+          </div>
+        </div>
+        <div class="span-6 start-7">
+          <form class="form" action="mailto:kontakt@esgbricks.example" method="post" enctype="text/plain" data-endpoint="" data-sent="Jeres opkald er booket. Vi bekræfter tidspunktet på mail." novalidate>
+            <div class="field"><label for="f-first">Fornavn</label>
+              <input id="f-first" name="fornavn" type="text" autocomplete="given-name" required aria-describedby="f-first-err">
+              <p class="field__error" id="f-first-err" hidden>Skriv dit fornavn.</p></div>
+            <div class="field"><label for="f-last">Efternavn</label>
+              <input id="f-last" name="efternavn" type="text" autocomplete="family-name" aria-describedby="f-last-err">
+              <p class="field__error" id="f-last-err" hidden>Skriv dit efternavn.</p></div>
+            <div class="field"><label for="f-phone">Mobilnummer</label>
+              <input id="f-phone" name="mobil" type="tel" autocomplete="tel" inputmode="tel" required aria-describedby="f-phone-err">
+              <p class="field__error" id="f-phone-err" hidden>Skriv det nummer, vi skal ringe til.</p></div>
+            <div class="field"><label for="f-email">Email</label>
+              <input id="f-email" name="email" type="email" autocomplete="email" inputmode="email" aria-describedby="f-email-err">
+              <p class="field__error" id="f-email-err" hidden>Skriv en mailadresse med @, fx navn@firma.dk.</p></div>
+            <div class="field field--full"><label for="f-time">Tidspunkt</label>
+              <input id="f-time" name="tidspunkt" type="text" autocomplete="off" required aria-describedby="f-time-err">
+              <p class="field__error" id="f-time-err" hidden>Skriv den dag og det tidspunkt, der passer jer.</p></div>
+            <div class="btn-row"><button class="btn btn--primary" type="submit">Book et opkald</button></div>
+            <p class="form__status" role="status" data-form-status></p>
+            <p class="t-small muted">Vi ringer på det tidspunkt, I skriver.</p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--word">
+      <div class="section-head--split">
+        <div><h2 id="close-h">Lad os lave jeres ESG-rapport</h2><p class="t-lead">Komplet ESG-service for 14.999 kr. om året ekskl. moms.</p></div>
+        <a class="btn btn--primary" href="#book">Book et opkald<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+      </div>
+      <p class="close__word" aria-hidden="true">esg<span class="close__word-accent">BRICKS</span></p>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top"><img class="brand-logo" src="logo-light.png" alt="esgBRICKS, powered by Capana" width="168" height="36" loading="lazy"></a>
+          <p class="footer__lede">ESG-rapportering bygget på 20 års erfaring med data og rapportering.</p>
+        </div>
+        <div class="span-2 footer__col"><h3>Platform</h3><ul><li><a href="#platform">Moduler</a></li><li><a href="#proces">Klimaregnskab</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Proces</h3><ul><li><a href="#proces">Dataindsamling</a></li><li><a href="#partner">Fast partner</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Priser</h3><ul><li><a href="#priser">ESG-rapport</a></li><li><a href="#priser">PCF</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Hvorfor</h3><ul><li><a href="#hvorfor">Bank og kunder</a></li><li><a href="/login">Log ind</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 esgBRICKS</span>
+        <div class="socials"></div>
+        <span class="credits">Produktnavne og logoer tilhører deres ejere</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+<script type="module" src="assets/diagrams/mount.js"></script>
+</body>
+</html>

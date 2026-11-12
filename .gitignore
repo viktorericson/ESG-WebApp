@@ -45,3 +45,6 @@ next-env.d.ts
 
 # uploads i udvikling
 /uploads
+
+# design checks for the landing page (taste-skill: screenshots, reports, Chrome profile)
+/public/landing/.taste-skill/
