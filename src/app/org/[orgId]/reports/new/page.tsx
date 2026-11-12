@@ -26,7 +26,7 @@ export default async function NewReportPage({ params, searchParams }: PageProps<
 
   return (
     <>
-      <Link href={`/org/${orgId}/reports`} className="text-sm text-neutral-500 hover:text-neutral-800">← Rapporter</Link>
+      <Link href={`/org/${orgId}/reports`} className="text-sm text-neutral-600 hover:text-neutral-900">← Rapporter</Link>
       <PageHeader title={`Ny rapport for ${period.year}`} description="Fx en individuel rapport for et datterselskab, der skal bruge sin egen opgørelse." />
       <Card className="max-w-3xl">
         <ReportForm

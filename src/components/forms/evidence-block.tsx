@@ -95,7 +95,7 @@ export function EvidenceBlock({
                 />
               ))}
               {!disabled && (
-                <button type="button" aria-label="Fjern kilde" onClick={() => onChange({ ...value, sources: sources.filter((_, j) => j !== i) })} className="rounded px-2 text-neutral-400 hover:bg-red-50 hover:text-red-600">
+                <button type="button" aria-label="Fjern kilde" onClick={() => onChange({ ...value, sources: sources.filter((_, j) => j !== i) })} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-neutral-500 hover:bg-red-50 hover:text-red-600 sm:min-h-9 sm:min-w-9">
                   ✕
                 </button>
               )}

@@ -7,7 +7,7 @@ import { formatBytes, formatDate, formatTime, requirePlatformAdmin } from "@/lib
 import { ACTION_LABELS } from "@/lib/audit-labels";
 import { db } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/permissions";
-import { SUBMISSION_LABELS, SUBMISSION_TONE } from "@/lib/review";
+import { SUBMISSION_ICON, SUBMISSION_LABELS, SUBMISSION_TONE } from "@/lib/review";
 import { REPORT_STATUS_LABELS } from "@/lib/validation";
 
 export default async function AdminOrganization({ params }: PageProps<"/admin/organizations/[orgId]">) {
@@ -37,7 +37,7 @@ export default async function AdminOrganization({ params }: PageProps<"/admin/or
 
   return (
     <>
-      <Link href="/admin/organizations" className="text-sm text-neutral-500 hover:text-neutral-800">
+      <Link href="/admin/organizations" className="text-sm text-neutral-600 hover:text-neutral-900">
         ← Koncerner
       </Link>
       <PageHeader
@@ -83,7 +83,7 @@ export default async function AdminOrganization({ params }: PageProps<"/admin/or
                           <td className="px-3 py-2.5 text-right tabular-nums">{c.locations.length}</td>
                           <td className="px-5 py-2.5">
                             {sub ? (
-                              <Badge tone={SUBMISSION_TONE[sub.status]}>
+                              <Badge tone={SUBMISSION_TONE[sub.status]} icon={SUBMISSION_ICON[sub.status]}>
                                 {sub.period.year}: {SUBMISSION_LABELS[sub.status]}
                               </Badge>
                             ) : (

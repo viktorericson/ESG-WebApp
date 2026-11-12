@@ -28,7 +28,7 @@ export default async function LocationPage({ params, searchParams }: PageProps<"
   return (
     <>
       {canSeeCompany && (
-        <Link href={`/org/${orgId}/companies/${location.companyId}${period ? `?period=${period.id}` : ""}`} className="text-sm text-neutral-500 hover:text-neutral-800">
+        <Link href={`/org/${orgId}/companies/${location.companyId}${period ? `?period=${period.id}` : ""}`} className="text-sm text-neutral-600 hover:text-neutral-900">
           ← {location.company.name}
         </Link>
       )}
@@ -59,7 +59,7 @@ export default async function LocationPage({ params, searchParams }: PageProps<"
             <div><dt className="text-xs text-neutral-500">Funktion</dt><dd>{location.function ?? "–"}</dd></div>
             <div>
               <dt className="text-xs text-neutral-500">Geolokation</dt>
-              <dd>{location.latitude !== null && location.longitude !== null ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}` : <Badge tone="amber">Mangler</Badge>}</dd>
+              <dd>{location.latitude !== null && location.longitude !== null ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}` : <Badge tone="amber" icon="!">Mangler</Badge>}</dd>
             </div>
             <div>
               <dt className="text-xs text-neutral-500">Driftsperiode</dt>

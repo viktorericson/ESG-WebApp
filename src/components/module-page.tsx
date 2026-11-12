@@ -41,13 +41,13 @@ export async function ModulePage({
 
   return (
     <>
-      <Link href={`${backHref}?period=${period.id}`} className="text-sm text-neutral-500 hover:text-neutral-800">
+      <Link href={`${backHref}?period=${period.id}`} className="text-sm text-neutral-600 hover:text-neutral-900">
         ← {backLabel}
       </Link>
       <PageHeader
         title={
           <span>
-            <span className="mr-2 text-neutral-400">{scope.def.number}.</span>
+            <span className="mr-2 text-neutral-500">{scope.def.number}.</span>
             {scope.def.title}
           </span>
         }

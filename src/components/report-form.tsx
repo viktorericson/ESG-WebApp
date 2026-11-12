@@ -73,7 +73,7 @@ export function ReportForm({
       {periodId && <input type="hidden" name="periodId" value={periodId} />}
       <input type="hidden" name="reportId" value={report.id} />
 
-      <fieldset disabled={disabled} className="space-y-5 disabled:opacity-70">
+      <fieldset disabled={disabled} className="min-w-0 space-y-5">
         <div>
           <Label htmlFor="name">Navn</Label>
           <Input id="name" name="name" required defaultValue={report.name} className="mt-1" />

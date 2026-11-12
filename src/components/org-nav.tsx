@@ -14,15 +14,16 @@ export function OrgNav({ orgId, isAdmin, showMembers, showReports }: { orgId: st
     ...(isAdmin ? [{ href: `${base}/settings`, label: "Indstillinger" }] : []),
   ];
   return (
-    <nav className="-mb-px flex gap-1 overflow-x-auto">
+    <nav aria-label="Koncern" className="-mb-px flex overflow-x-auto [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] sm:gap-1 sm:[mask-image:none]">
       {items.map((item) => {
         const active = item.exact ? pathname === item.href || pathname.startsWith(`${base}/companies`) : pathname.startsWith(item.href);
         return (
           <Link
             key={item.href}
             href={item.href}
+            aria-current={active ? "page" : undefined}
             className={cx(
-              "whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium",
+              "whitespace-nowrap border-b-2 px-2.5 py-2.5 text-sm font-medium sm:px-3",
               active ? "border-brand-600 text-brand-700" : "border-transparent text-neutral-600 hover:text-neutral-900",
             )}
           >

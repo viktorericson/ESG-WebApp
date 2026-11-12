@@ -8,3 +8,6 @@ export const STATUS_LABELS: Record<ModuleStatusValue, string> = {
 };
 
 export const STATUS_TONE = { NOT_STARTED: "neutral", IN_PROGRESS: "amber", COMPLETED: "green", NOT_RELEVANT: "neutral" } as const;
+
+/** Ikon pr. status, så statusser ikke kun adskilles af farve */
+export const STATUS_ICON: Record<ModuleStatusValue, string> = { NOT_STARTED: "○", IN_PROGRESS: "◐", COMPLETED: "✓", NOT_RELEVANT: "–" };

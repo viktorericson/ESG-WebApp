@@ -46,3 +46,4 @@ export const SUBMISSION_LABELS: Record<string, string> = {
   APPROVED: "Godkendt",
 };
 export const SUBMISSION_TONE = { DRAFT: "neutral", SUBMITTED: "amber", RETURNED: "red", APPROVED: "green" } as const;
+export const SUBMISSION_ICON: Record<string, string> = { DRAFT: "○", SUBMITTED: "◷", RETURNED: "↩", APPROVED: "✓" };

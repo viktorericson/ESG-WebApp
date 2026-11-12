@@ -26,7 +26,7 @@ export default async function FactorSetsPage({ params }: PageProps<"/org/[orgId]
 
   return (
     <>
-      <Link href={`/org/${orgId}/settings`} className="text-sm text-neutral-500 hover:text-neutral-800">← Indstillinger</Link>
+      <Link href={`/org/${orgId}/settings`} className="text-sm text-neutral-600 hover:text-neutral-900">← Indstillinger</Link>
       <PageHeader
         title="Emissionsfaktorer"
         description="Beregningerne bruger Klimakompassets emissionsfaktorer som standard. Du kan oprette et eget faktorsæt som kopi og rette enkelte faktorer, fx leverandørspecifikke værdier."
@@ -43,7 +43,7 @@ export default async function FactorSetsPage({ params }: PageProps<"/org/[orgId]
                     <Link href={`/org/${orgId}/settings/factors/${s.id}`} className="font-medium text-brand-700 hover:underline">
                       {s.name} {s.version}
                     </Link>
-                    {s.isDefault && !s.organizationId && <Badge tone="green">Standard</Badge>}
+                    {s.isDefault && !s.organizationId && <Badge>Standard</Badge>}
                     {s.organizationId ? <Badge>Eget sæt</Badge> : <Badge>Officielt</Badge>}
                   </div>
                   <p className="mt-1 text-sm text-neutral-500">

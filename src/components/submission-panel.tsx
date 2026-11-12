@@ -3,7 +3,7 @@ import { ActionForm, FieldError, SubmitButton } from "@/components/action-form";
 import { Badge, Card, CardHeader, Textarea } from "@/components/ui";
 import { reviewCompany, submitCompany } from "@/lib/actions/review";
 import type { Access } from "@/lib/permissions";
-import { getSubmission, readiness, SUBMISSION_LABELS, SUBMISSION_TONE } from "@/lib/review";
+import { getSubmission, readiness, SUBMISSION_ICON, SUBMISSION_LABELS, SUBMISSION_TONE } from "@/lib/review";
 
 const timeFmt = new Intl.DateTimeFormat("da-DK", { dateStyle: "medium", timeStyle: "short" });
 
@@ -28,10 +28,10 @@ export async function SubmissionPanel({ orgId, periodId, year, companyId, access
       <CardHeader
         title={`Indsendelse ${year}`}
         description={`${r.done} af ${r.total} moduler er færdige eller markeret ikke relevante.`}
-        action={<Badge tone={SUBMISSION_TONE[status]}>{SUBMISSION_LABELS[status]}</Badge>}
+        action={<Badge tone={SUBMISSION_TONE[status]} icon={SUBMISSION_ICON[status]}>{SUBMISSION_LABELS[status]}</Badge>}
       />
       <div className="space-y-4 px-5 py-4 text-sm">
-        <div className="h-1.5 overflow-hidden rounded-full bg-neutral-200" role="progressbar" aria-valuenow={r.done} aria-valuemax={r.total}>
+        <div className="h-1.5 overflow-hidden rounded-full bg-neutral-200" role="progressbar" aria-label="Færdige moduler" aria-valuenow={r.done} aria-valuemin={0} aria-valuemax={r.total}>
           <div className="h-full rounded-full bg-brand-500" style={{ width: `${r.total ? (r.done / r.total) * 100 : 0}%` }} />
         </div>
 
@@ -66,9 +66,14 @@ export async function SubmissionPanel({ orgId, periodId, year, companyId, access
           <ActionForm action={submitCompany} className="space-y-2">
             {hidden}
             <Textarea name="comment" rows={2} placeholder="Evt. kommentar til koncernadmin" aria-label="Kommentar til koncernadmin" />
-            <SubmitButton disabled={!r.ready} pendingText="Indsender…" title={r.ready ? undefined : "Alle moduler skal være færdige eller markeret ikke relevante"}>
+            <SubmitButton disabled={!r.ready} pendingText="Indsender…" aria-describedby={r.ready ? undefined : "submit-reason"}>
               Indsend til gennemgang
             </SubmitButton>
+            {!r.ready && (
+              <p id="submit-reason" className="text-xs text-neutral-600">
+                Kan indsendes, når alle {r.total} moduler er færdige eller markeret ikke relevante – {missing.length} mangler (se listen ovenfor).
+              </p>
+            )}
             <p className="text-xs text-neutral-500">Når data er indsendt, er de låst, indtil koncernadmin har godkendt dem eller sendt dem tilbage.</p>
           </ActionForm>
         )}

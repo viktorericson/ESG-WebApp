@@ -23,7 +23,7 @@ export default async function CompanyResultsPage({ params, searchParams }: PageP
 
   return (
     <>
-      <Link href={`${base}${period ? `?period=${period.id}` : ""}`} className="text-sm text-neutral-500 hover:text-neutral-800">
+      <Link href={`${base}${period ? `?period=${period.id}` : ""}`} className="text-sm text-neutral-600 hover:text-neutral-900">
         ← {company.name}
       </Link>
       <PageHeader

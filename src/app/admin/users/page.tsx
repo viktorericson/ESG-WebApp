@@ -41,7 +41,7 @@ export default async function AdminUsers({ searchParams }: PageProps<"/admin/use
           Søg
         </button>
         {(q || onlyDisabled) && (
-          <Link href="/admin/users" className="text-sm text-neutral-500 hover:text-neutral-800">
+          <Link href="/admin/users" className="text-sm text-neutral-600 hover:text-neutral-900">
             Nulstil
           </Link>
         )}
@@ -78,7 +78,7 @@ export default async function AdminUsers({ searchParams }: PageProps<"/admin/use
                         </Link>
                         <div className="mt-0.5 flex flex-wrap gap-1.5">
                           {u.name && <span className="text-xs text-neutral-500">{u.name}</span>}
-                          {isPlatformAdmin(u.email) && <Badge tone="green">Platformejer</Badge>}
+                          {isPlatformAdmin(u.email) && <Badge>Platformejer</Badge>}
                           {u.disabledAt && <Badge tone="red">Spærret</Badge>}
                           {u.sessions.length > 0 && !u.disabledAt && <Badge>Logget ind</Badge>}
                         </div>

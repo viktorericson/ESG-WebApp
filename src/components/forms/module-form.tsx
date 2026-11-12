@@ -5,7 +5,7 @@ import { Badge, Button, Card, Textarea, cx } from "@/components/ui";
 import { saveModuleAnswers, setModuleStatus } from "@/lib/actions/module-data";
 import { evaluateModule, fieldRequired, fieldVisible, sanitizeAnswers, sectionEvidence, sectionMeta, sectionVisible } from "@/lib/forms/engine";
 import { getModule } from "@/lib/forms/registry";
-import { STATUS_LABELS, STATUS_TONE, type ModuleStatusValue } from "@/lib/forms/status";
+import { STATUS_ICON, STATUS_LABELS, STATUS_TONE, type ModuleStatusValue } from "@/lib/forms/status";
 import { EVIDENCE_KEY, META_KEY, type Answers, type Evidence, type FormContext, type SectionMeta } from "@/lib/forms/types";
 import { EvidenceBlock, type AttachmentInfo } from "./evidence-block";
 import { FieldControl, VsChips } from "./fields";
@@ -131,16 +131,24 @@ export function ModuleForm({
 
   const readOnly = !canEdit || status === "NOT_RELEVANT";
   const pct = ev.required ? Math.round((ev.filled / ev.required) * 100) : ev.complete ? 100 : 0;
+  const missingCount = ev.required - ev.filled;
+  const firstOpen = ev.sections.find((s) => s.visible && !s.done);
+  const goToFirstOpen = () => {
+    if (!firstOpen) return;
+    const el = document.getElementById(`section-${firstOpen.key}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    el?.querySelector<HTMLElement>("input:not([type=hidden]), select, textarea")?.focus({ preventScroll: true });
+  };
 
   return (
     <div className="space-y-5">
       {/* Statuslinje */}
       <div className="sticky top-0 z-10 -mx-4 border-b border-neutral-200 bg-[#f6f7f6]/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Badge tone={STATUS_TONE[status]}>{STATUS_LABELS[status]}</Badge>
+          <Badge tone={STATUS_TONE[status]} icon={STATUS_ICON[status]}>{STATUS_LABELS[status]}</Badge>
           {status !== "NOT_RELEVANT" && (
             <div className="flex items-center gap-2 text-sm text-neutral-600">
-              <div className="h-1.5 w-32 overflow-hidden rounded-full bg-neutral-200" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-1.5 w-32 overflow-hidden rounded-full bg-neutral-200" role="progressbar" aria-label="Udfyldte krævede felter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
                 <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${pct}%` }} />
               </div>
               <span className="tabular-nums">
@@ -165,7 +173,17 @@ export function ModuleForm({
                   <Button variant="ghost" onClick={() => setAskNotRelevant((v) => !v)}>
                     Ikke relevant
                   </Button>
-                  <Button onClick={() => changeStatus("COMPLETED")} disabled={!ev.complete} title={ev.complete ? undefined : "Udfyld alle krævede felter eller markér sektioner som “data mangler”"}>
+                  {!ev.complete && (
+                    <span className="flex items-center gap-1 self-center text-xs text-neutral-600" id="complete-reason">
+                      {missingCount > 0 ? `${missingCount} krævede ${missingCount === 1 ? "felt mangler" : "felter mangler"}` : "Ret fejlene markeret med rødt"}
+                      {firstOpen && (
+                        <button type="button" onClick={goToFirstOpen} className="rounded px-1 py-2 font-medium text-brand-700 underline underline-offset-2 hover:text-brand-900">
+                          Gå til
+                        </button>
+                      )}
+                    </span>
+                  )}
+                  <Button onClick={() => changeStatus("COMPLETED")} disabled={!ev.complete} aria-describedby={ev.complete ? undefined : "complete-reason"}>
                     Markér som færdig
                   </Button>
                 </>
@@ -189,7 +207,15 @@ export function ModuleForm({
         {statusError && <p className="mt-2 text-sm text-red-600">{statusError}</p>}
       </div>
 
-      {lockedReason && <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">{lockedReason}</p>}
+      {lockedReason && (
+        <p className="flex items-start gap-2 rounded-md border border-neutral-200 bg-neutral-100 px-4 py-3 text-sm text-neutral-800">
+          <span aria-hidden="true">🔒</span>
+          <span>
+            <span className="font-medium">Skrivebeskyttet. </span>
+            {lockedReason}
+          </span>
+        </p>
+      )}
       {status === "NOT_RELEVANT" && (
         <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm text-neutral-700">
           <span className="font-medium">Markeret som ikke relevant:</span> {initialNote ?? note}
@@ -207,7 +233,7 @@ export function ModuleForm({
         const prog = ev.sections.find((s) => s.key === section.key)!;
         const meta = sectionMeta(answers, section.key);
         return (
-          <Card key={section.key} className={cx(meta.missing && "border-amber-200")}>
+          <Card key={section.key} id={`section-${section.key}`} className={cx("scroll-mt-24", meta.missing && "border-amber-200")}>
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-200 px-5 py-4">
               <div>
                 <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold">
@@ -222,7 +248,7 @@ export function ModuleForm({
               </span>
             </div>
 
-            <fieldset disabled={readOnly} className="space-y-5 px-5 py-5">
+            <fieldset disabled={readOnly} className="min-w-0 space-y-5 px-5 py-5">
               {ev.warnings
                 .filter((w) => w.section === section.key)
                 .map((w) => (
@@ -241,6 +267,7 @@ export function ModuleForm({
                     error={issueFor(section.key, f.key) ?? ev.issues.find((i) => i.field === f.key && i.row !== undefined)?.message}
                     required={fieldRequired(f, clean, ctx)}
                     ctx={ctx}
+                    readOnly={readOnly}
                   />
                 ) : null,
               )}
@@ -257,7 +284,7 @@ export function ModuleForm({
                 />
               )}
 
-              {prog.required > 0 && (
+              {prog.required > 0 && (!readOnly || meta.missing) && (
                 <div className="rounded-md border border-dashed border-neutral-300 px-4 py-3">
                   <label className="flex items-center gap-2 text-sm text-neutral-700">
                     <input

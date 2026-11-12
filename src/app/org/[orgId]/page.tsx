@@ -3,24 +3,33 @@ import { Badge, buttonStyles, Card, CardHeader, EmptyState, PageHeader } from "@
 import { requireOrgAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { buildTree, getVisibleCompanies, type TreeNode } from "@/lib/org-data";
+import { readiness, SUBMISSION_ICON, SUBMISSION_LABELS, SUBMISSION_TONE } from "@/lib/review";
+
+type Progress = { status: string; done: number; total: number };
 
 export default async function OrgOverview({ params }: PageProps<"/org/[orgId]">) {
   const { orgId } = await params;
   const { access, organization } = await requireOrgAccess(orgId);
   const companies = await getVisibleCompanies(orgId, access);
   const tree = buildTree(companies);
-  const [members, periods] = await Promise.all([
-    db.membership.findMany({ where: { organizationId: orgId }, distinct: ["userId"], select: { userId: true } }),
-    db.reportingPeriod.findMany({ where: { organizationId: orgId }, orderBy: { year: "desc" } }),
-  ]);
-  const locationCount = companies.reduce((n, c) => n + c.locations.length, 0);
+  const period = await db.reportingPeriod.findFirst({ where: { organizationId: orgId }, orderBy: { year: "desc" } });
 
-  const stats = [
-    { label: "Selskaber", value: companies.length },
-    { label: "Lokationer", value: locationCount },
-    { label: "Brugere", value: members.length },
-    { label: "Seneste rapporteringsår", value: periods[0]?.year ?? "–" },
-  ];
+  // Indsendelsesstatus pr. selskab for det seneste rapporteringsår – det koncernadmin skal følge op på
+  const progress = new Map<string, Progress>();
+  if (period) {
+    const subs = await db.companySubmission.findMany({ where: { periodId: period.id, companyId: { in: companies.map((c) => c.id) } } });
+    const ready = await Promise.all(companies.map((c) => readiness(period.id, c.id)));
+    companies.forEach((c, i) => {
+      progress.set(c.id, { status: subs.find((s) => s.companyId === c.id)?.status ?? "DRAFT", done: ready[i].done, total: ready[i].total });
+    });
+  }
+  const count = (status: string) => [...progress.values()].filter((p) => p.status === status).length;
+  const summary = [
+    { status: "APPROVED", n: count("APPROVED"), label: "godkendt" },
+    { status: "SUBMITTED", n: count("SUBMITTED"), label: "afventer gennemgang" },
+    { status: "RETURNED", n: count("RETURNED"), label: "sendt tilbage" },
+    { status: "DRAFT", n: count("DRAFT"), label: "ikke indsendt" },
+  ].filter((s) => s.n > 0);
 
   return (
     <>
@@ -36,14 +45,16 @@ export default async function OrgOverview({ params }: PageProps<"/org/[orgId]">)
         }
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {stats.map((s) => (
-          <Card key={s.label} className="px-4 py-3">
-            <p className="text-xs text-neutral-500">{s.label}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{s.value}</p>
-          </Card>
-        ))}
-      </div>
+      {period && summary.length > 0 && (
+        <p className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-neutral-700">
+          <span className="font-medium">Indsendelse {period.year}:</span>
+          {summary.map((s) => (
+            <Badge key={s.status} tone={SUBMISSION_TONE[s.status as keyof typeof SUBMISSION_TONE]} icon={SUBMISSION_ICON[s.status]}>
+              {s.n} {s.label}
+            </Badge>
+          ))}
+        </p>
+      )}
 
       {!access.canViewAll && (
         <Card className="mb-6">
@@ -74,13 +85,16 @@ export default async function OrgOverview({ params }: PageProps<"/org/[orgId]">)
       )}
 
       <Card>
-        <CardHeader title="Koncernstruktur" description="Selskaber markeret “ikke konsolideret” indgår ikke i koncernens samlede opgørelse." />
+        <CardHeader
+          title="Koncernstruktur"
+          description={`Selskaber markeret “ikke konsolideret” indgår ikke i koncernens samlede opgørelse.${period ? ` Status gælder rapporteringsår ${period.year}.` : ""}`}
+        />
         {tree.length === 0 ? (
           <EmptyState>Ingen selskaber endnu.</EmptyState>
         ) : (
           <ul className="py-2">
             {tree.map((node) => (
-              <CompanyRow key={node.id} node={node} orgId={orgId} depth={0} />
+              <CompanyRow key={node.id} node={node} orgId={orgId} depth={0} progress={progress} />
             ))}
           </ul>
         )}
@@ -89,7 +103,8 @@ export default async function OrgOverview({ params }: PageProps<"/org/[orgId]">)
   );
 }
 
-function CompanyRow({ node, orgId, depth }: { node: TreeNode; orgId: string; depth: number }) {
+function CompanyRow({ node, orgId, depth, progress }: { node: TreeNode; orgId: string; depth: number; progress: Map<string, Progress> }) {
+  const p = progress.get(node.id);
   return (
     <li>
       <Link
@@ -100,16 +115,28 @@ function CompanyRow({ node, orgId, depth }: { node: TreeNode; orgId: string; dep
         {depth > 0 && <span className="text-neutral-300">└</span>}
         <span className="font-medium">{node.name}</span>
         <span className="font-mono text-xs text-neutral-500">CVR {node.cvr}</span>
-        {!node.parentId && <Badge tone="green">Moderselskab</Badge>}
-        {!node.consolidate && <Badge tone="amber">Ikke konsolideret</Badge>}
-        <span className="ml-auto text-xs text-neutral-500">
-          {node.locations.length} {node.locations.length === 1 ? "lokation" : "lokationer"}
+        {!node.parentId && <Badge>Moderselskab</Badge>}
+        {!node.consolidate && <Badge>Ikke konsolideret</Badge>}
+        <span className="ml-auto flex items-center gap-3 text-xs text-neutral-600">
+          <span>
+            {node.locations.length} {node.locations.length === 1 ? "lokation" : "lokationer"}
+          </span>
+          {p && (
+            <>
+              <span className="tabular-nums">
+                {p.done}/{p.total} moduler
+              </span>
+              <Badge tone={SUBMISSION_TONE[p.status as keyof typeof SUBMISSION_TONE]} icon={SUBMISSION_ICON[p.status]}>
+                {SUBMISSION_LABELS[p.status]}
+              </Badge>
+            </>
+          )}
         </span>
       </Link>
       {node.children.length > 0 && (
         <ul>
           {node.children.map((child) => (
-            <CompanyRow key={child.id} node={child} orgId={orgId} depth={depth + 1} />
+            <CompanyRow key={child.id} node={child} orgId={orgId} depth={depth + 1} progress={progress} />
           ))}
         </ul>
       )}

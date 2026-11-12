@@ -53,7 +53,7 @@ export function MemberList({ orgId, data, access, currentUserId }: { orgId: stri
             <p className="font-medium text-neutral-700">{inv.email}</p>
             <p className="text-xs text-neutral-500">Inviteret · udløber {dateFmt.format(inv.expiresAt)}</p>
           </div>
-          <Badge tone="amber">Afventer</Badge>
+          <Badge icon="◷">Afventer</Badge>
           <span className="text-neutral-500">{ROLE_LABELS[inv.role]}</span>
           <span className="w-56 truncate text-neutral-600">{scopeText(inv)}</span>
           {access.canInvite({ role: inv.role, companyId: inv.companyId, location: inv.location }) && (

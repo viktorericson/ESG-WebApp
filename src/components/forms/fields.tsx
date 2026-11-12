@@ -15,7 +15,7 @@ export function Help({ info, howTo }: { info?: string; howTo?: string }) {
   if (!info && !howTo) return null;
   return (
     <details className="group mt-1.5 text-xs">
-      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-brand-700 hover:underline">
+      <summary className="-my-1 inline-flex min-h-8 cursor-pointer list-none items-center gap-1 py-1 text-brand-700 hover:underline">
         <span className="inline-block transition-transform group-open:rotate-90">›</span> Vejledning
       </summary>
       <div className="mt-1.5 space-y-2 rounded-md border border-brand-100 bg-brand-50/60 p-3 leading-relaxed text-neutral-700">
@@ -36,7 +36,7 @@ export function VsChips({ vs }: { vs?: string[] }) {
   return (
     <span className="inline-flex flex-wrap gap-1">
       {vs.map((v) => (
-        <span key={v} className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] text-neutral-500">
+        <span key={v} className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-600">
           {v}
         </span>
       ))}
@@ -62,9 +62,10 @@ type FieldProps = {
   required: boolean;
   id: string;
   ctx?: FormContext;
+  readOnly?: boolean;
 };
 
-export function FieldControl({ field, value, onChange, error, required, id, ctx }: FieldProps) {
+export function FieldControl({ field, value, onChange, error, required, id, ctx, readOnly }: FieldProps) {
   const invalid = error ? "border-red-400 focus:border-red-500 focus:ring-red-100" : "";
 
   const control = (() => {
@@ -148,7 +149,7 @@ export function FieldControl({ field, value, onChange, error, required, id, ctx 
         );
       }
       case "table":
-        return <TableControl columns={field.columns} rows={(value as Row[]) ?? []} onChange={onChange} addLabel={field.addLabel} ctx={ctx} />;
+        return <TableControl columns={field.columns} rows={(value as Row[]) ?? []} onChange={onChange} addLabel={field.addLabel} ctx={ctx} readOnly={readOnly} />;
     }
   })();
 
@@ -158,7 +159,7 @@ export function FieldControl({ field, value, onChange, error, required, id, ctx 
       <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3">
         <label id={`${id}-label`} htmlFor={field.type === "radio" || field.type === "yesno" || field.type === "table" ? undefined : id} className="text-sm font-medium text-neutral-800">
           {field.label}
-          {required ? <span className="text-red-600"> *</span> : <span className="ml-1 text-xs font-normal text-neutral-400">(valgfrit)</span>}
+          {required ? <span className="text-red-600"> *</span> : <span className="ml-1 text-xs font-normal text-neutral-500">(valgfrit)</span>}
         </label>
         <VsChips vs={field.vs} />
       </div>
@@ -172,7 +173,7 @@ export function FieldControl({ field, value, onChange, error, required, id, ctx 
 
 type Row = Record<string, unknown> & { _id: string };
 
-function TableControl({ columns, rows, onChange, addLabel, ctx }: { columns: ColumnDef[]; rows: Row[]; onChange: (v: Row[]) => void; addLabel?: string; ctx?: FormContext }) {
+function TableControl({ columns, rows, onChange, addLabel, ctx, readOnly }: { columns: ColumnDef[]; rows: Row[]; onChange: (v: Row[]) => void; addLabel?: string; ctx?: FormContext; readOnly?: boolean }) {
   const update = (i: number, key: string, v: unknown) => onChange(rows.map((r, j) => (j === i ? { ...r, [key]: v } : r)));
   return (
     <div className="space-y-2">
@@ -187,7 +188,7 @@ function TableControl({ columns, rows, onChange, addLabel, ctx }: { columns: Col
                     {c.required && <span className="text-red-600"> *</span>}
                   </th>
                 ))}
-                <th className="w-8" />
+                {!readOnly && <th className="w-11"><span className="sr-only">Handlinger</span></th>}
               </tr>
             </thead>
             <tbody>
@@ -217,22 +218,27 @@ function TableControl({ columns, rows, onChange, addLabel, ctx }: { columns: Col
                       )}
                     </td>
                   ))}
+                  {!readOnly && (
                   <td className="p-1.5">
                     <button
                       type="button"
                       aria-label={`Fjern række ${i + 1}`}
                       onClick={() => onChange(rows.filter((_, j) => j !== i))}
-                      className="rounded px-2 py-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                      className="inline-flex size-11 items-center justify-center rounded text-neutral-500 hover:bg-red-50 hover:text-red-600 sm:size-9"
                     >
                       ✕
                     </button>
                   </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+      {readOnly ? (
+        rows.length === 0 && <p className="text-sm text-neutral-600">Ingen rækker.</p>
+      ) : (
       <button
         type="button"
         onClick={() => onChange([...rows, { _id: crypto.randomUUID() }])}
@@ -240,6 +246,7 @@ function TableControl({ columns, rows, onChange, addLabel, ctx }: { columns: Col
       >
         + {addLabel ?? "Tilføj række"}
       </button>
+      )}
     </div>
   );
 }

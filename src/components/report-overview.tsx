@@ -4,7 +4,7 @@ import { CompanyResults, fmt, viewOfGroup } from "@/components/results";
 import { calculateReport, calculateReportPrevious } from "@/lib/calc/server";
 import { db } from "@/lib/db";
 import { ALL_POLICY_TOPICS } from "@/lib/forms/modules/company-policies";
-import { readiness, SUBMISSION_LABELS, SUBMISSION_TONE } from "@/lib/review";
+import { readiness, SUBMISSION_ICON, SUBMISSION_LABELS, SUBMISSION_TONE } from "@/lib/review";
 
 type Company = { id: string; name: string };
 
@@ -32,7 +32,7 @@ export async function ReportStatus({ orgId, periodId, companies }: { orgId: stri
                   </span>
                   {r.done}/{r.total} moduler
                 </span>
-                <Badge tone={SUBMISSION_TONE[status]}>{SUBMISSION_LABELS[status]}</Badge>
+                <Badge tone={SUBMISSION_TONE[status]} icon={SUBMISSION_ICON[status]}>{SUBMISSION_LABELS[status]}</Badge>
               </Link>
             </li>
           );
@@ -130,7 +130,7 @@ export async function PolicyMatrix({ periodId, companies }: { periodId: string; 
               return (
                 <tr key={t.key} className="border-b border-neutral-100">
                   <td className="px-5 py-2">{t.label}</td>
-                  <td className="px-3 py-2">{group ? <Badge tone={PRACTICE[group].tone}>{PRACTICE[group].label}{groupTargets ? " ✓" : ""}</Badge> : <span className="text-neutral-400">–</span>}</td>
+                  <td className="px-3 py-2">{group ? <Badge tone={PRACTICE[group].tone}>{PRACTICE[group].label}{groupTargets ? " ✓" : ""}</Badge> : <span className="text-neutral-500">–</span>}</td>
                   {values.map((v, i) => (
                     <td key={companies[i].id} className="px-3 py-2">
                       {v.practice ? (
@@ -139,7 +139,7 @@ export async function PolicyMatrix({ periodId, companies }: { periodId: string; 
                           {v.targets && v.practice !== "NO" ? " ✓" : ""}
                         </span>
                       ) : (
-                        <span className="text-neutral-400">–</span>
+                        <span className="text-neutral-500">–</span>
                       )}
                     </td>
                   ))}

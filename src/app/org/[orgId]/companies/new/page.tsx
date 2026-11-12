@@ -17,7 +17,7 @@ export default async function NewCompanyPage({ params, searchParams }: PageProps
 
   return (
     <>
-      <Link href={`/org/${orgId}`} className="text-sm text-neutral-500 hover:text-neutral-800">← Overblik</Link>
+      <Link href={`/org/${orgId}`} className="text-sm text-neutral-600 hover:text-neutral-900">← Overblik</Link>
       <PageHeader title="Tilføj selskab" description="Datterselskaber indrapporterer selv og samles i koncernens opgørelse." />
       <Card className="max-w-3xl">
         <CompanyForm

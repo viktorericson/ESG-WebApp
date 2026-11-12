@@ -30,14 +30,14 @@ export default async function AdminUser({ params }: PageProps<"/admin/users/[use
 
   return (
     <>
-      <Link href="/admin/users" className="text-sm text-neutral-500 hover:text-neutral-800">
+      <Link href="/admin/users" className="text-sm text-neutral-600 hover:text-neutral-900">
         ← Brugere
       </Link>
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-3">
             {user.email}
-            {isPlatformAdmin(user.email) && <Badge tone="green">Platformejer</Badge>}
+            {isPlatformAdmin(user.email) && <Badge>Platformejer</Badge>}
             {user.disabledAt && <Badge tone="red">Spærret</Badge>}
           </span>
         }

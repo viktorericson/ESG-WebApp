@@ -24,9 +24,9 @@ export function InviteForm({ orgId, options, defaultCompanyId }: { orgId: string
   const [role, setRole] = useState<Role>(options.roles.includes("COMPANY_MANAGER") ? "COMPANY_MANAGER" : options.roles[0]);
 
   return (
-    <ActionForm action={inviteMember} className="space-y-4 p-5" resetOnSuccess>
+    <ActionForm action={inviteMember} className="@container space-y-4 p-5" resetOnSuccess>
       <input type="hidden" name="orgId" value={orgId} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <div>
           <Label htmlFor="invite-email">E-mail</Label>
           <Input id="invite-email" name="email" type="email" required className="mt-1" placeholder="navn@virksomhed.dk" />
@@ -44,7 +44,7 @@ export function InviteForm({ orgId, options, defaultCompanyId }: { orgId: string
           <p className="mt-1 text-xs text-neutral-500">{ROLE_HELP[role]}</p>
         </div>
         {role === "COMPANY_MANAGER" && (
-          <div className="sm:col-span-2">
+          <div className="@md:col-span-2">
             <Label htmlFor="invite-company">Selskab</Label>
             <Select id="invite-company" name="companyId" defaultValue={defaultCompanyId ?? ""} required className="mt-1">
               <option value="">Vælg selskab…</option>
@@ -58,7 +58,7 @@ export function InviteForm({ orgId, options, defaultCompanyId }: { orgId: string
           </div>
         )}
         {role === "LOCATION_CONTRIBUTOR" && (
-          <div className="sm:col-span-2">
+          <div className="@md:col-span-2">
             <Label htmlFor="invite-location">Lokation</Label>
             <Select id="invite-location" name="locationId" required className="mt-1">
               <option value="">Vælg lokation…</option>

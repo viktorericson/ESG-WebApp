@@ -2,13 +2,13 @@ import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { ModuleBadge, StatusBadge } from "@/components/report-badges";
 import { ReportForm } from "@/components/report-form";
-import { Card, CardHeader, PageHeader, Select, buttonStyles } from "@/components/ui";
+import { Card, CardHeader, PageHeader, buttonStyles } from "@/components/ui";
 import { sofficePath } from "@/lib/export/pdf";
 import { deleteReport, setReportStatus, updateReport } from "@/lib/actions/reports";
 import { deny, requireOrgAccess } from "@/lib/auth";
 import { GroupKpis, PolicyMatrix, ReportStatus } from "@/components/report-overview";
 import { db } from "@/lib/db";
-import { REPORT_BASIS_LABELS, REPORT_MODULE_LABELS, REPORT_STATUS_LABELS, reportStatuses } from "@/lib/validation";
+import { REPORT_BASIS_LABELS, REPORT_MODULE_LABELS } from "@/lib/validation";
 
 const dateFmt = new Intl.DateTimeFormat("da-DK", { dateStyle: "medium" });
 
@@ -33,11 +33,17 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
   });
   const included = report.companies.map((rc) => rc.company).sort((a, b) => (a.id === report.reportingCompanyId ? -1 : b.id === report.reportingCompanyId ? 1 : a.name.localeCompare(b.name, "da")));
   const locked = report.status === "APPROVED";
+  // Rapporten kan kun godkendes, når alle omfattede selskabers data er godkendt
+  const approvedSubs = await db.companySubmission.findMany({
+    where: { periodId: report.periodId, status: "APPROVED", companyId: { in: included.map((c) => c.id) } },
+    select: { companyId: true },
+  });
+  const notApproved = included.filter((c) => !approvedSubs.some((a) => a.companyId === c.id));
   const pdfAvailable = sofficePath() !== null;
 
   return (
     <>
-      <Link href={`/org/${orgId}/reports`} className="text-sm text-neutral-500 hover:text-neutral-800">← Rapporter</Link>
+      <Link href={`/org/${orgId}/reports`} className="text-sm text-neutral-600 hover:text-neutral-900">← Rapporter</Link>
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-3">
@@ -54,7 +60,7 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
           <CardHeader title="Rapportopsætning" description="Rapportgrundlag, afgrænsning og udeladelser (B1)." />
           {access.canManageOrg ? (
             <>
-              {locked && <p className="mx-5 mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">Rapporten er godkendt og låst. Skift status for at redigere.</p>}
+              {locked && <p className="mx-5 mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">Rapporten er godkendt og låst. Genåbn den under “Kontrol og godkendelse” for at redigere.</p>}
               <ReportForm
                 action={updateReport}
                 orgId={orgId}
@@ -121,17 +127,60 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
 
           {access.canManageOrg && (
             <Card className="p-5">
-              <h3 className="text-sm font-semibold">Kontrol og godkendelse</h3>
-              <ActionForm action={setReportStatus} className="mt-3 flex gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <h3 className="text-sm font-semibold">Kontrol og godkendelse</h3>
+                <StatusBadge status={report.status} />
+              </div>
+              <p className="mt-1 text-xs text-neutral-600">
+                {report.status === "DRAFT" && "Når opsætningen er på plads, sendes rapporten til gennemgang."}
+                {report.status === "IN_REVIEW" && "Rapporten gennemgås. Godkend den, når alle selskabers data er godkendt."}
+                {report.status === "APPROVED" && "Rapporten er godkendt og låst. Genåbn den for at rette opsætningen."}
+              </p>
+
+              {report.status !== "APPROVED" && notApproved.length > 0 && (
+                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <p className="font-medium">
+                    {notApproved.length} af {included.length} {included.length === 1 ? "selskab mangler" : "selskaber mangler"} godkendte data:
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {notApproved.map((c) => (
+                      <li key={c.id}>
+                        <Link href={`/org/${orgId}/companies/${c.id}?period=${report.periodId}`} className="underline underline-offset-2 hover:text-amber-950">
+                          {c.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <ActionForm action={setReportStatus} className="mt-4">
                 <input type="hidden" name="orgId" value={orgId} />
                 <input type="hidden" name="reportId" value={report.id} />
-                <Select name="status" defaultValue={report.status} aria-label="Status">
-                  {reportStatuses.map((s) => (
-                    <option key={s} value={s}>{REPORT_STATUS_LABELS[s]}</option>
-                  ))}
-                </Select>
-                <SubmitButton variant="secondary" pendingText="…">Skift</SubmitButton>
+                <div className="flex flex-wrap gap-2">
+                  {report.status === "DRAFT" && (
+                    <SubmitButton name="status" value="IN_REVIEW" pendingText="Sender…">
+                      Send til gennemgang
+                    </SubmitButton>
+                  )}
+                  {report.status === "IN_REVIEW" && (
+                    <>
+                      <SubmitButton name="status" value="APPROVED" pendingText="Godkender…" disabled={notApproved.length > 0 || undefined}>
+                        Godkend og lås
+                      </SubmitButton>
+                      <SubmitButton name="status" value="DRAFT" variant="secondary" pendingText="…">
+                        Tilbage til udarbejdelse
+                      </SubmitButton>
+                    </>
+                  )}
+                  {report.status === "APPROVED" && (
+                    <SubmitButton name="status" value="DRAFT" variant="secondary" pendingText="Genåbner…">
+                      Genåbn rapport
+                    </SubmitButton>
+                  )}
+                </div>
               </ActionForm>
+
               {!locked && (
                 <ActionForm action={deleteReport} confirm={`Slet rapporten "${report.name}"? De indrapporterede data slettes ikke.`} className="mt-4 border-t border-neutral-100 pt-4">
                   <input type="hidden" name="orgId" value={orgId} />

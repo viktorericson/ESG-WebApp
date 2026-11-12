@@ -45,7 +45,7 @@ export function LocationFields({ loc, idPrefix }: { loc?: Loc; idPrefix: string 
         </Select>
       </div>
 
-      <fieldset className="sm:col-span-2">
+      <fieldset className="min-w-0 sm:col-span-2">
         <legend className="text-sm font-medium text-neutral-800">Geolokation (B1)</legend>
         <p className="mb-1 text-xs text-neutral-500">
           Decimalgrader (WGS84). Hent dem ud fra adressen, eller aflæs dem selv ved at højreklikke på adressen i Google Maps eller bruge målefunktionen på arealinformation.miljoeportal.dk.
@@ -65,7 +65,7 @@ export function LocationFields({ loc, idPrefix }: { loc?: Loc; idPrefix: string 
         </div>
       </fieldset>
 
-      <fieldset className="sm:col-span-2">
+      <fieldset className="min-w-0 sm:col-span-2">
         <legend className="text-sm font-medium text-neutral-800">Driftsperiode</legend>
         <p className="mb-1 text-xs text-neutral-500">Udfyld kun, hvis lokationen er taget i brug eller fraflyttet i løbet af perioden. Tom slutdato betyder i drift.</p>
         <div className="grid grid-cols-2 gap-3">

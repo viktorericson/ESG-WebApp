@@ -22,7 +22,7 @@ export function Button({
 }
 
 const control =
-  "block w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-xs placeholder:text-neutral-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100";
+  "block w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-xs placeholder:text-neutral-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:bg-neutral-50 disabled:text-neutral-600 disabled:shadow-none";
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cx(control, className)} {...props} />;
@@ -56,14 +56,21 @@ export function CardHeader({ title, description, action }: { title: ReactNode; d
   );
 }
 
-export function Badge({ tone = "neutral", children }: { tone?: "neutral" | "green" | "amber" | "red"; children: ReactNode }) {
+/**
+ * Farver har én betydning hver: grøn = færdig/godkendt, gul = kræver handling, rød = fejl/afvist, grå = neutral info.
+ * Statusser bør også have et ikon, så de ikke kun adskilles af farve.
+ */
+export function Badge({ tone = "neutral", icon, children }: { tone?: "neutral" | "green" | "amber" | "red"; icon?: string; children: ReactNode }) {
   const tones = {
     neutral: "bg-neutral-100 text-neutral-700",
     green: "bg-brand-50 text-brand-700",
     amber: "bg-amber-50 text-amber-800",
     red: "bg-red-50 text-red-700",
   };
-  return <span className={cx("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium", tones[tone])}>{children}</span>;
+  return <span className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium", tones[tone])}>
+      {icon && <span aria-hidden="true">{icon}</span>}
+      {children}
+    </span>;
 }
 
 export function PageHeader({ title, description, action }: { title: ReactNode; description?: ReactNode; action?: ReactNode }) {
@@ -71,7 +78,7 @@ export function PageHeader({ title, description, action }: { title: ReactNode; d
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {description && <p className="mt-1 text-sm text-neutral-500">{description}</p>}
+        {description && <p className="mt-1 text-sm text-neutral-600">{description}</p>}
       </div>
       {action}
     </div>

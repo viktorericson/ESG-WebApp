@@ -60,13 +60,13 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
 
   return (
     <>
-      <Link href={`/org/${orgId}`} className="text-sm text-neutral-500 hover:text-neutral-800">← Overblik</Link>
+      <Link href={`/org/${orgId}`} className="text-sm text-neutral-600 hover:text-neutral-900">← Overblik</Link>
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-3">
             {company.name}
-            {!company.parentId && <Badge tone="green">Moderselskab</Badge>}
-            {!company.consolidate && <Badge tone="amber">Ikke konsolideret</Badge>}
+            {!company.parentId && <Badge>Moderselskab</Badge>}
+            {!company.consolidate && <Badge>Ikke konsolideret</Badge>}
           </span>
         }
         description={
@@ -166,7 +166,7 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
                             {loc.name}
                           </Link>
                           <Badge>{LOCATION_CONTROL_LABELS[loc.control]}</Badge>
-                          {loc.latitude === null ? <Badge tone="amber">Mangler geolokation</Badge> : null}
+                          {loc.latitude === null ? <Badge tone="amber" icon="!">Mangler geolokation</Badge> : null}
                           {loc.operationalTo && loc.operationalTo < new Date() ? <Badge tone="red">Ophørt</Badge> : null}
                         </div>
                         <p className="mt-0.5 text-sm text-neutral-500">
@@ -193,7 +193,7 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
                       })()}
                     </EditableRow>
                     {(loc.latitude !== null || loc.operationalFrom || loc.operationalTo) && (
-                      <p className="mt-1 text-xs text-neutral-400">
+                      <p className="mt-1 text-xs text-neutral-500">
                         {loc.latitude !== null && loc.longitude !== null && (
                           <a
                             className="underline underline-offset-2 hover:text-neutral-700"

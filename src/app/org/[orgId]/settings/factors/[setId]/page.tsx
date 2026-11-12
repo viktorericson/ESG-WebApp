@@ -41,7 +41,7 @@ export default async function FactorSetPage({ params, searchParams }: PageProps<
 
   return (
     <>
-      <Link href={`/org/${orgId}/settings/factors`} className="text-sm text-neutral-500 hover:text-neutral-800">← Emissionsfaktorer</Link>
+      <Link href={`/org/${orgId}/settings/factors`} className="text-sm text-neutral-600 hover:text-neutral-900">← Emissionsfaktorer</Link>
       <PageHeader
         title={`${set.name} ${set.version}`}
         description={editable ? "Eget faktorsæt. Rettede faktorer markeres og bruges i alle år, der anvender sættet." : "Officielt faktorsæt – kan ikke rettes. Kopiér det for at lave egne tilpasninger."}
@@ -98,9 +98,9 @@ export default async function FactorSetPage({ params, searchParams }: PageProps<
                 <tr key={f.id} className="border-b border-neutral-100 align-top">
                   <td className="px-4 py-2">
                     <span className="font-medium">{[f.parameter1, f.parameter2].filter(Boolean).join(" · ") || f.category}</span>
-                    {f.customized && <span className="ml-2"><Badge tone="amber">Rettet</Badge></span>}
+                    {f.customized && <span className="ml-2"><Badge icon="✎">Rettet</Badge></span>}
                     <span className="block text-xs text-neutral-500">{f.mainCategory} – {f.category}</span>
-                    {f.source && <span className="block max-w-xl truncate text-xs text-neutral-400" title={f.source}>{f.source}</span>}
+                    {f.source && <span className="block max-w-xl truncate text-xs text-neutral-500" title={f.source}>{f.source}</span>}
                   </td>
                   <td className="px-2 py-2 text-neutral-600">{f.unit}</td>
                   {editable ? (

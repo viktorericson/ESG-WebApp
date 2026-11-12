@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Badge, cx } from "@/components/ui";
 import { isBuilt } from "@/lib/forms/registry";
-import { STATUS_LABELS, STATUS_TONE, type ModuleStatusValue } from "@/lib/forms/status";
+import { STATUS_ICON, STATUS_LABELS, STATUS_TONE, type ModuleStatusValue } from "@/lib/forms/status";
 import type { ModuleDef } from "@/lib/forms/types";
 
 export function ModuleList({
@@ -23,14 +23,14 @@ export function ModuleList({
         const cOnlyModule = m.vs.every((v) => v.startsWith("C"));
         const inner = (
           <>
-            <span className="w-6 shrink-0 text-right text-xs tabular-nums text-neutral-400">{m.number}</span>
+            <span className="w-6 shrink-0 text-right text-xs tabular-nums text-neutral-500">{m.number}</span>
             <span className="min-w-0 flex-1">
               <span className="block font-medium">{m.title}</span>
               <span className="block truncate text-xs text-neutral-500">{m.description}</span>
             </span>
             <span className="hidden gap-1 sm:flex">
               {m.vs.map((v) => (
-                <span key={v} className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] text-neutral-500">
+                <span key={v} className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-600">
                   {v}
                 </span>
               ))}
@@ -39,11 +39,11 @@ export function ModuleList({
               {m.stamdata ? (
                 <span className="text-xs text-neutral-500">Stamdata</span>
               ) : !built ? (
-                <span className="text-xs text-neutral-400">Kommer snart</span>
+                <span className="text-xs text-neutral-500">Kommer snart</span>
               ) : cOnlyModule && !comprehensive ? (
-                <span className="text-xs text-neutral-400">Kun ved B+C</span>
+                <span className="text-xs text-neutral-500">Kun ved B+C</span>
               ) : (
-                <Badge tone={STATUS_TONE[status]}>{STATUS_LABELS[status]}</Badge>
+                <Badge tone={STATUS_TONE[status]} icon={STATUS_ICON[status]}>{STATUS_LABELS[status]}</Badge>
               )}
             </span>
           </>
@@ -56,7 +56,7 @@ export function ModuleList({
                 {inner}
               </Link>
             ) : (
-              <div className={cx(cls, !m.stamdata && "opacity-60")}>{inner}</div>
+              <div className={cx(cls, !m.stamdata && "text-neutral-600")} aria-disabled={!m.stamdata || undefined}>{inner}</div>
             )}
           </li>
         );
