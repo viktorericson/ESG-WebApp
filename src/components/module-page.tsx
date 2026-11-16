@@ -5,7 +5,8 @@ import { PeriodSwitcher } from "@/components/module-list";
 import { PageHeader } from "@/components/ui";
 import { deny, requireOrgAccess } from "@/lib/auth";
 import type { Answers } from "@/lib/forms/types";
-import { getModuleData, loadModuleScope, type Target } from "@/lib/module-data";
+import { isDoneStatus, requiredModules } from "@/lib/forms/registry";
+import { getModuleData, loadModuleScope, moduleStatuses, type Target } from "@/lib/module-data";
 import { getPeriods, pickPeriod } from "@/lib/periods";
 
 /** Fælles side for et selskabs- eller lokationsmodul */
@@ -35,7 +36,14 @@ export async function ModulePage({
 
   const scope = await loadModuleScope(orgId, access, period.id, moduleKey, target);
   if (!scope || scope.def.sections.length === 0) deny();
-  const data = await getModuleData(period.id, moduleKey, scope.targetKey);
+  const [data, statuses] = await Promise.all([getModuleData(period.id, moduleKey, scope.targetKey), moduleStatuses(period.id, scope.targetKey)]);
+
+  // Rækkefølgen af moduler, så brugeren kan gå videre uden at skulle tilbage til oversigten
+  const order = requiredModules(scope.def.scope, scope.ctx.comprehensive);
+  const idx = order.findIndex((m) => m.key === moduleKey);
+  const link = (m: (typeof order)[number] | undefined) => (m ? { title: m.title, href: `${backHref}/modules/${m.key}?period=${period.id}` } : null);
+  const others = idx < 0 ? order : [...order.slice(idx + 1), ...order.slice(0, idx)];
+  const open = others.filter((m) => !isDoneStatus(statuses.get(m.key)?.status));
 
   const owner = scope.location ? `${scope.location.name} · ${scope.company.name}` : scope.company.name;
 
@@ -68,6 +76,14 @@ export async function ModulePage({
         canEdit={scope.canEdit}
         lockedReason={scope.lockReason ?? undefined}
         intro={intro}
+        nav={{
+          prev: link(idx > 0 ? order[idx - 1] : undefined),
+          next: link(idx >= 0 ? order[idx + 1] : undefined),
+          nextOpen: link(open[0]),
+          openCount: open.length,
+          overviewHref: `${backHref}?period=${period.id}`,
+          overviewLabel: scope.location ? scope.location.name : scope.company.name,
+        }}
       />
     </>
   );

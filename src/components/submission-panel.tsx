@@ -19,7 +19,8 @@ export async function SubmissionPanel({ orgId, periodId, year, companyId, access
       <input type="hidden" name="companyId" value={companyId} />
     </>
   );
-  const missing = r.items.filter((i) => !i.done);
+  // Moduler, der kun mangler at blive markeret færdige, står øverst
+  const missing = r.items.filter((i) => !i.done).sort((a, b) => Number(b.fillable) - Number(a.fillable));
   const hrefFor = (i: (typeof r.items)[number]) =>
     i.locationId ? `/org/${orgId}/locations/${i.locationId}/modules/${i.moduleKey}?period=${periodId}` : `/org/${orgId}/companies/${companyId}/modules/${i.moduleKey}?period=${periodId}`;
 
@@ -47,21 +48,37 @@ export async function SubmissionPanel({ orgId, periodId, year, companyId, access
           </p>
         )}
 
+        {r.fillable > 0 && canSubmit && (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-amber-900">
+            <span className="font-medium">
+              {r.fillable} {r.fillable === 1 ? "modul er udfyldt" : "moduler er udfyldt"}, men ikke markeret som færdige.
+            </span>{" "}
+            Åbn dem, og tryk “Markér som færdig”, så tæller de med.
+          </p>
+        )}
         {missing.length > 0 && status !== "APPROVED" && (
-          <details>
-            <summary className="cursor-pointer text-neutral-700">Mangler ({missing.length})</summary>
+          <details open={missing.length <= 8}>
+            <summary className="cursor-pointer font-medium text-neutral-800">
+              {missing.length} {missing.length === 1 ? "modul mangler" : "moduler mangler"} at blive færdige
+            </summary>
             <ul className="mt-2 space-y-1">
               {missing.map((i) => (
                 <li key={`${i.moduleKey}-${i.locationId}`}>
                   <Link href={hrefFor(i)} className="text-brand-700 hover:underline">
                     {i.target}: {i.title}
                   </Link>
+                  {i.fillable && <span className="text-xs text-amber-800"> · udfyldt, mangler kun at blive markeret færdig</span>}
                 </li>
               ))}
             </ul>
           </details>
         )}
 
+        {canSubmit && r.ready && (
+          <p className="rounded-md bg-brand-50 px-3 py-2 text-brand-700">
+            <span className="font-medium">✓ Alle moduler er færdige.</span> Data er klar til at blive indsendt{status === "RETURNED" ? " igen" : ""}.
+          </p>
+        )}
         {canSubmit && (
           <ActionForm action={submitCompany} className="space-y-2">
             {hidden}

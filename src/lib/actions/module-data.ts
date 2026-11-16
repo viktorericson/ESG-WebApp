@@ -23,7 +23,7 @@ async function scopeFor(input: Input) {
 
 function errorFor(scope: Awaited<ReturnType<typeof loadModuleScope>>): string | null {
   if (!scope) return "Modulet findes ikke, eller du har ikke adgang.";
-  if (scope.locked) return "Data er låst, fordi selskabet indgår i en godkendt rapport.";
+  if (scope.locked) return scope.lockReason ?? "Data er låst.";
   if (!scope.canEdit) return "Du har ikke adgang til at redigere dette modul.";
   return null;
 }

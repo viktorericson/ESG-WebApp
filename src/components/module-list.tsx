@@ -11,7 +11,7 @@ export function ModuleList({
   comprehensive,
 }: {
   modules: ModuleDef[];
-  statuses: Map<string, { status: ModuleStatusValue }>;
+  statuses: Map<string, { status: ModuleStatusValue; ready?: boolean }>;
   hrefFor: (m: ModuleDef) => string;
   comprehensive: boolean;
 }) {
@@ -35,16 +35,23 @@ export function ModuleList({
                 </span>
               ))}
             </span>
-            <span className="w-28 shrink-0 text-right">
+            <span className="w-40 shrink-0 text-right">
               {m.stamdata ? (
                 <span className="text-xs text-neutral-500">Stamdata</span>
               ) : !built ? (
                 <span className="text-xs text-neutral-500">Kommer snart</span>
               ) : cOnlyModule && !comprehensive ? (
                 <span className="text-xs text-neutral-500">Kun ved B+C</span>
+              ) : statuses.get(m.key)?.ready ? (
+                <span title="Alle krævede felter er udfyldt. Åbn modulet, og markér det som færdigt.">
+                  <Badge tone="amber" icon="◕">Klar – markér færdig</Badge>
+                </span>
               ) : (
                 <Badge tone={STATUS_TONE[status]} icon={STATUS_ICON[status]}>{STATUS_LABELS[status]}</Badge>
               )}
+            </span>
+            <span aria-hidden="true" className={cx("w-3 shrink-0 text-neutral-400", !(built && !(cOnlyModule && !comprehensive)) && "invisible")}>
+              ›
             </span>
           </>
         );

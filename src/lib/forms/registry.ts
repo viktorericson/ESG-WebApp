@@ -63,3 +63,13 @@ export function modulesFor(scope: ModuleScope): ModuleDef[] {
 }
 
 export const isBuilt = (m: ModuleDef) => m.sections.length > 0;
+
+/**
+ * Moduler der skal håndteres i årsindrapporteringen: byggede moduler uden for stamdata.
+ * Rene C-moduler indgår kun, når selskabet er omfattet af en B+C-rapport.
+ */
+export function requiredModules(scope: ModuleScope, comprehensive: boolean): ModuleDef[] {
+  return modulesFor(scope).filter((m) => isBuilt(m) && !m.stamdata && (comprehensive || !m.vs.every((v) => v.startsWith("C"))));
+}
+
+export const isDoneStatus = (status: string | undefined) => status === "COMPLETED" || status === "NOT_RELEVANT";

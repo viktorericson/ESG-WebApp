@@ -40,6 +40,8 @@ Uden `SMTP_URL` (i udvikling) vises linket direkte på siden og i serverkonsolle
 **Side:** `/`
 
 - Har brugeren adgang til **én** koncern, sendes hen direkte videre til `/org/[orgId]`.
+  - **Koncernadmin** ser her "Vejen til ESG-rapporten": fem trin (koncernstruktur, rapporteringsår, indrapportering, indsendelse/godkendelse, rapport) med det aktuelle trin fremhævet og en knap til næste handling. Guiden forsvinder, når årets rapporter er godkendt.
+  - **Selskabsansvarlige og lokationsbidragydere** ser "Dine indrapporteringer" med fremdrift, status og en knap (Start, Fortsæt, Ret data, Indsend) pr. selskab og lokation.
 - Har hen adgang til **flere**, vælger hen koncern.
 - Har hen **ingen**, og er tilmelding slået til (`allowSignup`), kan hen oprette en koncern: koncernens navn plus det øverste moderselskab med navn og CVR. Brugeren bliver koncernadmin.
 
@@ -147,6 +149,7 @@ Selskabet og dets lokationer udfylder modulerne for det valgte år.
 - **Data mangler:** en sektion kan markeres som manglende med en begrundelse.
 - **Plausibilitetstjek:** advarsler, der ikke blokerer, fx når antal ansatte i B8 ikke passer med B1.
 - **Status pr. modul:** *Ikke startet → I gang → Færdig*, eller *Ikke relevant* med begrundelse.
+- **Vejen videre:** nederst i modulet kan det markeres som færdigt, og derfra går en knap direkte til det næste modul, der mangler. Forrige og næste modul kan også åbnes uden om oversigten.
 
 Data låses, når selskabet er indsendt eller indgår i en godkendt rapport.
 

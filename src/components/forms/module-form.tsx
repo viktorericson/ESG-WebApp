@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Badge, Button, Card, Textarea, cx } from "@/components/ui";
+import { Badge, Button, buttonStyles, Card, Textarea, cx } from "@/components/ui";
 import { saveModuleAnswers, setModuleStatus } from "@/lib/actions/module-data";
 import { evaluateModule, fieldRequired, fieldVisible, sanitizeAnswers, sectionEvidence, sectionMeta, sectionVisible } from "@/lib/forms/engine";
 import { getModule } from "@/lib/forms/registry";
@@ -14,6 +15,19 @@ import { GeoSuggestions } from "./geo-suggestions";
 type Status = ModuleStatusValue;
 
 type SaveState = { kind: "idle" | "dirty" | "saving" | "saved" | "error"; at?: string; message?: string };
+
+type NavLink = { title: string; href: string };
+
+/** Vej videre fra modulet: forrige/næste i rækkefølgen og det næste modul, der endnu ikke er færdigt */
+export type ModuleNav = {
+  prev: NavLink | null;
+  next: NavLink | null;
+  nextOpen: NavLink | null;
+  /** Antal andre moduler for samme selskab/lokation, der ikke er færdige */
+  openCount: number;
+  overviewHref: string;
+  overviewLabel: string;
+};
 
 const timeFmt = new Intl.DateTimeFormat("da-DK", { hour: "2-digit", minute: "2-digit" });
 
@@ -30,6 +44,7 @@ export function ModuleForm({
   canEdit,
   lockedReason,
   intro,
+  nav,
 }: {
   moduleKey: string;
   orgId: string;
@@ -43,6 +58,7 @@ export function ModuleForm({
   canEdit: boolean;
   lockedReason?: string;
   intro?: ReactNode;
+  nav?: ModuleNav;
 }) {
   const def = getModule(moduleKey)!;
   const base = { orgId, periodId, moduleKey, target };
@@ -311,6 +327,87 @@ export function ModuleForm({
           </Card>
         );
       })}
+
+      {/* Afslutning: det samme valg som i statuslinjen, plus vejen videre til næste modul */}
+      <Card className={cx("px-5 py-4", (status === "COMPLETED" || status === "NOT_RELEVANT") && "border-brand-100 bg-brand-50/60")}>
+        {status === "COMPLETED" || status === "NOT_RELEVANT" ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm">
+              <p className="font-semibold text-brand-700">{status === "COMPLETED" ? "✓ Modulet er færdigt" : "Modulet er markeret som ikke relevant"}</p>
+              {nav && (
+                <p className="mt-0.5 text-neutral-600">
+                  {nav.openCount > 0
+                    ? `${nav.openCount} ${nav.openCount === 1 ? "modul" : "moduler"} mangler stadig for ${nav.overviewLabel}.`
+                    : target.locationId
+                      ? `Alle moduler for ${nav.overviewLabel} er færdige. Selskabets data indsendes samlet fra selskabssiden.`
+                      : `Alle selskabets moduler er færdige. Når lokationerne også er udfyldt, kan data indsendes fra selskabssiden.`}
+                </p>
+              )}
+            </div>
+            {nav &&
+              (nav.nextOpen ? (
+                <Link href={nav.nextOpen.href} className={buttonStyles.primary}>
+                  Næste: {nav.nextOpen.title} →
+                </Link>
+              ) : (
+                <Link href={nav.overviewHref} className={buttonStyles.primary}>
+                  Tilbage til {nav.overviewLabel} →
+                </Link>
+              ))}
+          </div>
+        ) : canEdit ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm">
+              <p className="font-semibold">
+                {ev.complete
+                  ? "Alle krævede felter er udfyldt"
+                  : missingCount > 0
+                    ? `${missingCount} ${missingCount === 1 ? "krævet felt mangler" : "krævede felter mangler"}`
+                    : "Ret fejlene markeret med rødt"}
+              </p>
+              <p className="mt-0.5 text-neutral-600">
+                {ev.complete
+                  ? "Markér modulet som færdigt, så det tæller med i selskabets indsendelse."
+                  : "Dine svar gemmes automatisk, så du kan fortsætte senere. Kan data ikke skaffes, kan sektionen markeres “Data mangler”."}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {!ev.complete && firstOpen && (
+                <Button variant="secondary" onClick={goToFirstOpen}>
+                  Gå til første manglende
+                </Button>
+              )}
+              <Button onClick={() => changeStatus("COMPLETED")} disabled={!ev.complete}>
+                Markér som færdig
+              </Button>
+            </div>
+          </div>
+        ) : (
+          nav && (
+            <Link href={nav.overviewHref} className="text-sm text-brand-700 hover:underline">
+              ← Tilbage til {nav.overviewLabel}
+            </Link>
+          )
+        )}
+        {statusError && <p className="mt-2 text-sm text-red-600">{statusError}</p>}
+      </Card>
+
+      {nav && (nav.prev || nav.next) && (
+        <nav aria-label="Moduler" className="flex flex-wrap justify-between gap-3 text-sm">
+          {nav.prev ? (
+            <Link href={nav.prev.href} className="text-neutral-600 hover:text-neutral-900">
+              ← {nav.prev.title}
+            </Link>
+          ) : (
+            <span />
+          )}
+          {nav.next && (
+            <Link href={nav.next.href} className="text-neutral-600 hover:text-neutral-900">
+              {nav.next.title} →
+            </Link>
+          )}
+        </nav>
+      )}
     </div>
   );
 }

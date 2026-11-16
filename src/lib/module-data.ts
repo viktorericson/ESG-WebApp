@@ -2,8 +2,9 @@ import "server-only";
 import { db } from "./db";
 import { scope3FactorOptions } from "./calc/server";
 import { highImpactSector } from "./nace";
+import { evaluateModule } from "./forms/engine";
 import { getModule } from "./forms/registry";
-import type { FormContext, ModuleDef } from "./forms/types";
+import type { Answers, FormContext, ModuleDef } from "./forms/types";
 import type { Access } from "./permissions";
 
 export type Target = { companyId: string; locationId?: string | null };
@@ -81,10 +82,16 @@ export async function getModuleData(periodId: string, moduleKey: string, targetK
   });
 }
 
-/** Status for alle moduler for et mål i et år */
-export async function moduleStatuses(periodId: string, targetKey: string) {
-  const rows = await db.moduleData.findMany({ where: { periodId, targetKey }, select: { moduleKey: true, status: true, updatedAt: true } });
-  return new Map(rows.map((r) => [r.moduleKey, r]));
+/** Et modul i gang, hvor alle krævede felter er udfyldt, mangler kun at blive markeret som færdigt */
+export function readyToComplete(moduleKey: string, status: string, answers: unknown, ctx: FormContext) {
+  const def = getModule(moduleKey);
+  return status === "IN_PROGRESS" && !!def && evaluateModule(def, (answers ?? {}) as Answers, ctx).complete;
+}
+
+/** Status for alle moduler for et mål i et år. Med kontekst markeres moduler, der er klar til at blive markeret færdige. */
+export async function moduleStatuses(periodId: string, targetKey: string, ctx?: FormContext) {
+  const rows = await db.moduleData.findMany({ where: { periodId, targetKey }, select: { moduleKey: true, status: true, updatedAt: true, answers: !!ctx } });
+  return new Map(rows.map(({ answers, ...r }) => [r.moduleKey, { ...r, ready: !!ctx && readyToComplete(r.moduleKey, r.status, answers, ctx) }]));
 }
 
 export type LoadedScope = NonNullable<Awaited<ReturnType<typeof loadModuleScope>>>;

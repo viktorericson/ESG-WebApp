@@ -36,14 +36,13 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
   const canSeeData = access.canViewAll || access.managesCompany(companyId);
   const periods = await getPeriods(orgId);
   const period = pickPeriod(periods, periodParam);
-  const [statuses, dataCtx] = period
-    ? await Promise.all([moduleStatuses(period.id, `company:${companyId}`), formContext(period.id, companyId)])
-    : [new Map(), null];
+  const dataCtx = period ? await formContext(period.id, companyId) : null;
+  const statuses = period && dataCtx ? await moduleStatuses(period.id, `company:${companyId}`, dataCtx) : new Map();
   const calc = canSeeData && period ? await calculateCompany(period.id, companyId) : null;
   const ready = period ? await readiness(period.id, companyId) : null;
   const locationProgress = (locationId: string) => {
     const items = ready?.items.filter((i) => i.locationId === locationId) ?? [];
-    return { done: items.filter((i) => i.done).length, total: items.length };
+    return { done: items.filter((i) => i.done).length, total: items.length, fillable: items.filter((i) => i.fillable).length };
   };
   const locationHref = (locationId: string) => `/org/${orgId}/locations/${locationId}${period ? `?period=${period.id}` : ""}`;
   const allCompanies = await db.company.findMany({ where: { organizationId: orgId, archivedAt: null }, select: { id: true, name: true, parentId: true }, orderBy: { name: "asc" } });
@@ -111,7 +110,16 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
                   hrefFor={(m) => `/org/${orgId}/companies/${companyId}/modules/${m.key}?period=${period.id}`}
                 />
               ) : (
-                <EmptyState>Der er ikke oprettet et rapporteringsår endnu. {access.canManageOrg ? "Opret det under Rapporter." : "Kontakt koncernadmin."}</EmptyState>
+                <EmptyState>
+                  Der er ikke oprettet et rapporteringsår endnu, så der er ikke noget at udfylde.{" "}
+                  {access.canManageOrg ? (
+                    <Link href={`/org/${orgId}/reports`} className="font-medium text-brand-700 underline underline-offset-2">
+                      Opret rapporteringsår →
+                    </Link>
+                  ) : (
+                    "Kontakt koncernadmin."
+                  )}
+                </EmptyState>
               )}
             </Card>
           )}
@@ -183,7 +191,7 @@ export default async function CompanyPage({ params, searchParams }: PageProps<"/
                               <div className="h-2 overflow-hidden rounded-full bg-neutral-200" role="progressbar" aria-label={`Fremdrift for ${loc.name}`} aria-valuenow={p.done} aria-valuemin={0} aria-valuemax={p.total}>
                                 <div className={`h-full rounded-full ${done ? "bg-brand-600" : "bg-brand-500"}`} style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} />
                               </div>
-                              <p className="mt-1 text-xs text-neutral-500">{done ? "✓ Alle moduler udfyldt" : `${p.done} af ${p.total} moduler udfyldt`}</p>
+                              <p className="mt-1 text-xs text-neutral-500">{done ? "✓ Alle moduler udfyldt" : `${p.done} af ${p.total} moduler udfyldt`}{p.fillable > 0 && ` · ${p.fillable} klar til færdig`}</p>
                             </div>
                             <Link href={locationHref(loc.id)} className={`${done ? buttonStyles.secondary : buttonStyles.primary} whitespace-nowrap py-1.5`}>
                               {done ? "Se data" : p.done > 0 ? "Fortsæt udfyldning" : "Udfyld data"} →

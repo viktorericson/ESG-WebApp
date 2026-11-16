@@ -17,7 +17,7 @@ export async function ReportStatus({ orgId, periodId, companies }: { orgId: stri
   const approved = subs.filter((s) => s.status === "APPROVED").length;
   return (
     <Card>
-      <CardHeader title="Status pr. selskab" description={`${approved} af ${companies.length} selskaber er godkendt. Rapporten kan godkendes, når alle er godkendt.`} />
+      <CardHeader title="Status pr. selskab" description={`${approved} af ${companies.length} ${companies.length === 1 ? "selskab" : "selskaber"} er godkendt. Rapporten kan godkendes, når alle er godkendt.`} />
       <ul className="divide-y divide-neutral-100 text-sm">
         {companies.map((c, i) => {
           const status = subs.find((s) => s.companyId === c.id)?.status ?? "DRAFT";

@@ -66,6 +66,9 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-6">
+        {/* Det admin oftest skal vide: hvem mangler – før selve opsætningen */}
+        <ReportStatus orgId={orgId} periodId={report.periodId} companies={included} />
         <Card>
           <CardHeader title="Rapportopsætning" description="Rapportgrundlag, afgrænsning og udeladelser (B1)." />
           {access.canManageOrg ? (
@@ -89,6 +92,7 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
             </dl>
           )}
         </Card>
+        </div>
 
         <aside className="space-y-6">
           <Card className="p-5">
@@ -211,7 +215,6 @@ export default async function ReportPage({ params }: PageProps<"/org/[orgId]/rep
       </div>
 
       <div className="mt-8 space-y-6">
-        <ReportStatus orgId={orgId} periodId={report.periodId} companies={included} />
         <GroupKpis reportId={report.id} consolidated={report.basis === "CONSOLIDATED"} />
         <PolicyMatrix periodId={report.periodId} companies={included} />
       </div>
