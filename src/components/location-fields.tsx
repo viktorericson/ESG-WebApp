@@ -10,6 +10,7 @@ type Loc = {
   control: string;
   latitude: number | null;
   longitude: number | null;
+  bfeNumber?: string | null;
   operationalFrom: Date | null;
   operationalTo: Date | null;
 };
@@ -64,6 +65,17 @@ export function LocationFields({ loc, idPrefix }: { loc?: Loc; idPrefix: string 
           </div>
         </div>
       </fieldset>
+
+      <div className="sm:col-span-2">
+        <Label htmlFor={id("bfeNumber")}>
+          BFE-nummer <span className="text-xs font-normal text-neutral-400">(valgfrit)</span>
+        </Label>
+        <Input id={id("bfeNumber")} name="bfeNumber" inputMode="numeric" defaultValue={loc?.bfeNumber ?? ""} placeholder="fx 2379317" className="mt-1 sm:max-w-xs" />
+        <p className="mt-1 text-xs text-neutral-500">
+          Ejendommens nummer i Matriklen. Bruges til at tegne grundens grænser på kortene under B5. Uden nummer findes grunden ud fra koordinaterne.
+        </p>
+        <FieldError name="bfeNumber" />
+      </div>
 
       <fieldset className="min-w-0 sm:col-span-2">
         <legend className="text-sm font-medium text-neutral-800">Driftsperiode</legend>

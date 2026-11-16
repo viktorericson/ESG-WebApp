@@ -130,15 +130,16 @@ function ApplyButton({ disabled, done, onClick }: { disabled: boolean; done: boo
 
 function NaturaText({ finding }: { finding: NaturaFinding }) {
   const names = finding.sites.map((s) => `${s.name} (${s.code})`).join("; ");
+  const from = finding.bfeNumber ? "grundens grænse" : "koordinaterne";
   return (
     <>
       <p className="mt-0.5 text-neutral-700">
-        {finding.relation === "IN" && <>Forslag: <strong>Ja, i området</strong>. Koordinaterne ligger i Natura 2000-området {names}.</>}
-        {finding.relation === "NEAR" && <>Forslag: <strong>Ja, nær området</strong>. Inden for {NEAR_METERS / 1000} km ligger Natura 2000-området {names}.</>}
-        {finding.relation === "NONE" && <>Forslag: <strong>Nej</strong>. Der er ingen Natura 2000-områder inden for {NEAR_METERS / 1000} km.</>}
+        {finding.relation === "IN" && <>Forslag: <strong>Ja, i området</strong>. {finding.bfeNumber ? "Grunden" : "Koordinaterne"} ligger i Natura 2000-området {names}.</>}
+        {finding.relation === "NEAR" && <>Forslag: <strong>Ja, nær området</strong>. Inden for {NEAR_METERS} m fra {from} ligger Natura 2000-området {names}.</>}
+        {finding.relation === "NONE" && <>Forslag: <strong>Nej</strong>. Der er ingen Natura 2000-områder inden for {NEAR_METERS} m fra {from}.</>}
       </p>
       <p className="mt-0.5 text-xs text-neutral-500">
-        Kilde: EEA’s Natura 2000-datasæt. Andre beskyttede områder (fx §3-natur, UNESCO-verdensarv og Key Biodiversity Areas) er ikke tjekket.
+        Kilde: EEA’s Natura 2000-datasæt{finding.bfeNumber && `, målt fra grunden med BFE-nummer ${finding.bfeNumber} (Matriklen)`}. Andre beskyttede områder (fx §3-natur, UNESCO-verdensarv og Key Biodiversity Areas) er ikke tjekket.
       </p>
     </>
   );

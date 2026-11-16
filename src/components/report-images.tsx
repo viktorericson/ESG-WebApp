@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, buttonStyles, Input } from "@/components/ui";
 import { imageLimit } from "@/lib/report-content";
 
@@ -24,6 +24,12 @@ export function ReportImages({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<ReportImageItem | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    if (preview && !dialog.current?.open) dialog.current?.showModal();
+  }, [preview]);
   const limit = imageLimit(slot);
   const base = `/api/reports/${reportId}/images`;
 
@@ -69,10 +75,16 @@ export function ReportImages({
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {images.map((img) => (
             <li key={img.id} className="space-y-1.5 rounded-md border border-neutral-200 p-2">
-              <div className="flex aspect-video items-center justify-center overflow-hidden rounded bg-neutral-50">
+              <button
+                type="button"
+                onClick={() => setPreview(img)}
+                aria-label={`Vis større: ${img.caption ?? "billede i rapporten"}`}
+                title="Klik for at se billedet større"
+                className="flex aspect-video w-full cursor-zoom-in items-center justify-center overflow-hidden rounded bg-neutral-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element -- privat billede bag login */}
                 <img src={`${base}/${img.id}`} alt={img.caption ?? "Billede i rapporten"} className="max-h-full max-w-full object-contain" />
-              </div>
+              </button>
               <Input
                 aria-label="Billedtekst"
                 placeholder="Billedtekst (valgfri)"
@@ -109,6 +121,26 @@ export function ReportImages({
           <span className="text-xs text-neutral-500">{hint ?? `PNG eller JPEG, højst 10 MB. Op til ${limit} ${limit === 1 ? "billede" : "billeder"}.`}</span>
         </div>
       )}
+      {/* Stor visning. <dialog> giver Escape-lukning og fokusfælde; klik på baggrunden lukker også. */}
+      <dialog
+        ref={dialog}
+        onClose={() => setPreview(null)}
+        onClick={(e) => e.target === e.currentTarget && e.currentTarget.close()}
+        className="m-auto max-h-[92vh] max-w-[min(96vw,1600px)] rounded-lg bg-white p-0 shadow-2xl backdrop:bg-black/70"
+      >
+        {preview && (
+          <figure className="flex max-h-[92vh] flex-col">
+            {/* eslint-disable-next-line @next/next/no-img-element -- privat billede bag login */}
+            <img src={`${base}/${preview.id}`} alt={preview.caption ?? "Billede i rapporten"} className="min-h-0 flex-1 object-contain" />
+            <figcaption className="flex items-start justify-between gap-4 border-t border-neutral-200 px-4 py-3 text-sm text-neutral-700">
+              <span>{preview.caption}</span>
+              <Button type="button" variant="secondary" className="shrink-0 py-1.5" autoFocus onClick={() => dialog.current?.close()}>
+                Luk
+              </Button>
+            </figcaption>
+          </figure>
+        )}
+      </dialog>
       {error && (
         <p role="alert" className="text-sm text-red-700">
           {error}

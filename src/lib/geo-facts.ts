@@ -2,12 +2,18 @@
  * Opslag på en lokations koordinater: Natura 2000-områder (EEA) og vandstress (WRI Aqueduct 4.0).
  * Resultaterne er forslag til modulet "Biodiversitet og geografiske forhold" og gemmes først, når brugeren anvender dem.
  */
+import type { Parcel } from "./parcels";
 
 /** Afstand, inden for hvilken en lokation foreslås som "nær" et Natura 2000-område */
-export const NEAR_METERS = 1000;
+export const NEAR_METERS = 50;
 
 export type NaturaSite = { code: string; name: string };
-export type NaturaFinding = { relation: "IN" | "NEAR" | "NONE"; sites: NaturaSite[] };
+export type NaturaFinding = {
+  relation: "IN" | "NEAR" | "NONE";
+  sites: NaturaSite[];
+  /** BFE-nummer, når opslaget er lavet på grundens grænser i stedet for lokationens punkt */
+  bfeNumber?: string;
+};
 
 export type WaterStressFinding = {
   /** YES = høj eller ekstremt høj vandstress, NO = lavere, null = kan ikke afgøres ud fra data */
@@ -68,26 +74,41 @@ async function getJson(url: URL): Promise<unknown> {
 
 const NATURA_URL = "https://bio.discomap.eea.europa.eu/arcgis/rest/services/ProtectedSites/Natura2000Sites/MapServer/2/query";
 
-async function naturaWithin(latitude: number, longitude: number, meters: number): Promise<NaturaSite[] | null> {
-  const url = new URL(NATURA_URL);
-  url.search = new URLSearchParams({
-    geometry: `${longitude},${latitude}`,
-    geometryType: "esriGeometryPoint",
-    inSR: "4326",
-    spatialRel: "esriSpatialRelIntersects",
-    distance: String(meters),
-    units: "esriSRUnit_Meter",
-    outFields: "SITECODE,SITENAME",
-    returnGeometry: "false",
-    f: "json",
-  }).toString();
-  return mapNaturaSites(await getJson(url));
+type EsriGeometry = { geometry: string; geometryType: string; inSR: string };
+
+const pointGeometry = (latitude: number, longitude: number): EsriGeometry => ({ geometry: `${longitude},${latitude}`, geometryType: "esriGeometryPoint", inSR: "4326" });
+
+/** ArcGIS forventer ydre ringe med uret og huller mod uret (modsat GeoJSON), ellers læses grunden som et hul. */
+export function esriRings(parcel: Parcel): number[][][] {
+  const signedArea = (ring: number[][]) => ring.reduce((sum, [x, y], i) => sum + x * ring[(i + 1) % ring.length][1] - ring[(i + 1) % ring.length][0] * y, 0);
+  return parcel.polygons.flatMap((polygon) =>
+    polygon.map((ring, i) => {
+      const clockwise = signedArea(ring) < 0;
+      return clockwise === (i === 0) ? ring : [...ring].reverse();
+    }),
+  );
 }
 
-async function lookupNatura(latitude: number, longitude: number): Promise<Lookup<NaturaFinding>> {
-  const [inside, nearby] = await Promise.all([naturaWithin(latitude, longitude, 0), naturaWithin(latitude, longitude, NEAR_METERS)]);
+const parcelGeometry = (parcel: Parcel): EsriGeometry => ({ geometry: JSON.stringify({ rings: esriRings(parcel), spatialReference: { wkid: 25832 } }), geometryType: "esriGeometryPolygon", inSR: "25832" });
+
+async function naturaWithin(geometry: EsriGeometry, meters: number): Promise<NaturaSite[] | null> {
+  // POST, fordi en grunds grænser kan være for lange til en URL
+  try {
+    const res = await fetch(NATURA_URL, {
+      method: "POST",
+      body: new URLSearchParams({ ...geometry, spatialRel: "esriSpatialRelIntersects", distance: String(meters), units: "esriSRUnit_Meter", outFields: "SITECODE,SITENAME", returnGeometry: "false", f: "json" }),
+      signal: AbortSignal.timeout(15000),
+    });
+    return res.ok ? mapNaturaSites(await res.json()) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function lookupNatura(geometry: EsriGeometry, bfeNumber?: string): Promise<Lookup<NaturaFinding>> {
+  const [inside, nearby] = await Promise.all([naturaWithin(geometry, 0), naturaWithin(geometry, NEAR_METERS)]);
   if (!inside || !nearby) return { ok: false, error: unavailable(NATURA_SOURCE) };
-  return { ok: true, value: naturaFinding(inside, nearby) };
+  return { ok: true, value: { ...naturaFinding(inside, nearby), ...(bfeNumber ? { bfeNumber } : {}) } };
 }
 
 async function lookupWaterStress(latitude: number, longitude: number): Promise<Lookup<WaterStressFinding>> {
@@ -98,8 +119,12 @@ async function lookupWaterStress(latitude: number, longitude: number): Promise<L
   return mapWaterStress(await getJson(url));
 }
 
-/** Slår Natura 2000 og vandstress op for et koordinatsæt (WGS84). De to opslag fejler uafhængigt af hinanden. */
-export async function lookupGeoFacts(latitude: number, longitude: number): Promise<GeoFacts> {
-  const [natura, waterStress] = await Promise.all([lookupNatura(latitude, longitude), lookupWaterStress(latitude, longitude)]);
-  return { natura, waterStress };
+/**
+ * Slår Natura 2000 og vandstress op for et koordinatsæt (WGS84). Med en grund måles afstanden til Natura 2000
+ * fra grundens grænser i stedet for fra punktet. De to opslag fejler uafhængigt af hinanden.
+ */
+export async function lookupGeoFacts(latitude: number, longitude: number, parcel?: Parcel | null): Promise<GeoFacts> {
+  const natura = parcel ? lookupNatura(parcelGeometry(parcel), parcel.bfeNumber) : lookupNatura(pointGeometry(latitude, longitude));
+  const [naturaResult, waterStress] = await Promise.all([natura, lookupWaterStress(latitude, longitude)]);
+  return { natura: naturaResult, waterStress };
 }

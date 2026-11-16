@@ -88,6 +88,11 @@ export const locationSchema = z
     control: z.enum(locationControls),
     latitude: optionalNumber(-90, 90, "Breddegrad skal være mellem -90 og 90"),
     longitude: optionalNumber(-180, 180, "Længdegrad skal være mellem -180 og 180"),
+    bfeNumber: z
+      .string()
+      .optional()
+      .transform((v) => (v ?? "").replace(/\s/g, "") || null)
+      .refine((v) => v === null || /^\d{1,10}$/.test(v), "BFE-nummer må kun indeholde cifre"),
     operationalFrom: optionalDate,
     operationalTo: optionalDate,
   })

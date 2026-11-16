@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AreaMapsButton } from "@/components/area-maps-button";
 import { ReportImages, type ReportImageItem } from "@/components/report-images";
-import { Button, Card, CardHeader, Label, Textarea, cx } from "@/components/ui";
+import { RichTextField } from "@/components/rich-text-editor";
+import { Button, Card, CardHeader, cx } from "@/components/ui";
 import { copyContentFromPrevious, saveReportContent } from "@/lib/actions/reports";
 import { MAX_SECTION_TEXT, MAX_SUMMARY_TEXT, MAX_TEXT, SECTIONS, type ReportContent, type SectionKey } from "@/lib/report-content";
 import type { Previews, SectionPreview } from "@/lib/export/preview";
 import { formatChange, isImprovement, type Summary } from "@/lib/summary";
+
+/** Billedlisten holder sin egen tilstand; nøglen nulstiller den, når serveren har ændret billederne (fx hentede kort) */
+const imageKey = (images: ReportImageItem[]) => images.map((i) => i.id).join(",");
 
 type Save = { kind: "idle" } | { kind: "dirty" } | { kind: "saving" } | { kind: "saved"; at: string } | { kind: "error"; message: string };
 
@@ -17,6 +22,7 @@ function Counter({ value, max }: { value: string | undefined; max: number }) {
   return <span className={cx("text-xs tabular-nums", n > max ? "text-red-700" : "text-neutral-500")}>{n.toLocaleString("da-DK")} / {max.toLocaleString("da-DK")}</span>;
 }
 
+/** Tekstfelt med fuld editor (fed, kursiv, understregning, overskrifter, lister) og "Udvid" til et stort vindue */
 function TextField({
   id,
   label,
@@ -37,14 +43,16 @@ function TextField({
   onChange: (v: string) => void;
 }) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3">
-        <Label htmlFor={id}>{label}</Label>
-        <Counter value={value} max={max} />
-      </div>
-      {hint && <p className="mt-0.5 text-xs text-neutral-500">{hint}</p>}
-      <Textarea id={id} rows={rows} className="mt-1.5" value={value ?? ""} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
-    </div>
+    <RichTextField
+      id={id}
+      label={label}
+      hint={hint}
+      value={value}
+      disabled={disabled}
+      onChange={onChange}
+      counter={<Counter value={value} max={max} />}
+      minHeight={`${rows * 1.5}rem`}
+    />
   );
 }
 
@@ -253,7 +261,7 @@ export function ReportContentEditor({
             <TextField
               id="foreword"
               label="Forord"
-              hint="Fx ledelsens ord om året, hvorfor I rapporterer, og hvad I vil opnå. Linjeskift giver nye afsnit."
+              hint="Fx ledelsens ord om året, hvorfor I rapporterer, og hvad I vil opnå."
               value={content.foreword}
               max={MAX_TEXT}
               rows={8}
@@ -346,7 +354,9 @@ export function ReportContentEditor({
                       disabled={disabled}
                       onChange={(v) => setSection(s.key, v)}
                     />
+                    {s.key === "b5" && canEdit && <AreaMapsButton reportId={reportId} />}
                     <ReportImages
+                      key={imageKey(imgs)}
                       reportId={reportId}
                       slot={`section:${s.key}`}
                       initial={imgs}
@@ -377,7 +387,7 @@ export function ReportContentEditor({
           <div className="space-y-2">
             <p className="text-sm font-medium text-neutral-800">Bilag</p>
             <p className="text-xs text-neutral-500">Ét billede pr. side bagerst i rapporten, med billedteksten som overskrift – fx certifikater, virksomhedsprofil eller kort.</p>
-            <ReportImages reportId={reportId} slot="appendix" initial={imagesFor("appendix")} canEdit={canEdit} hint="PNG eller JPEG, højst 10 MB. Op til 20 bilag." />
+            <ReportImages key={imageKey(imagesFor("appendix"))} reportId={reportId} slot="appendix" initial={imagesFor("appendix")} canEdit={canEdit} hint="PNG eller JPEG, højst 10 MB. Op til 20 bilag." />
           </div>
         </div>
       </Card>

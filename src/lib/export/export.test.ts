@@ -277,6 +277,24 @@ describe("ren skabelon og ekstra sider", () => {
     expect(texts[b6 + 1]).toContain("Afsnit 1:");
   });
 
+  it("skriver editorens formatering ind i PowerPoint", { timeout: 30_000 }, async () => {
+    const m = buildExportModel(input([company("a", "Solo ApS")], false));
+    const foreword = "## Året i korte træk\nVi har **halveret** udledningen og *styrket* ++dokumentationen++.\n- Elbiler\n1. Første mål\n2. Andet mål";
+    const { buffer, leftovers } = await fillEsgTemplate(template, m, null, { content: { foreword, sections: { b6: "Vandforbruget er **faldet**." } }, pictures: {}, summary: null, brandColor: null, cover: null });
+    expect(leftovers).toEqual([]);
+    const zip = await JSZip.loadAsync(buffer);
+    const xml = (await Promise.all(zip.file(/ppt\/slides\/slide\d+\.xml$/).map((f) => f.async("string")))).join("");
+    // Ingen formateringstegn i den færdige tekst
+    expect(xml).not.toMatch(/\*\*|\+\+|## /);
+    expect(xml).toMatch(/b="1"[^>]*>(<[^>]+>)*<a:t xml:space="preserve">halveret</);
+    expect(xml).toMatch(/i="1"[^>]*>(<[^>]+>)*<a:t xml:space="preserve">styrket</);
+    expect(xml).toMatch(/u="sng"[^>]*>(<[^>]+>)*<a:t xml:space="preserve">dokumentationen</);
+    expect(xml).toContain('<a:buAutoNum type="arabicPeriod" startAt="2"/>');
+    expect(xml).toMatch(/<a:buChar char="•"\/><\/a:pPr><a:r>(<[^>]+>)*<a:t xml:space="preserve">Elbiler</);
+    expect(xml).toContain(">Året i korte træk<");
+    expect(xml).toMatch(/b="1"[^>]*>(<[^>]+>)*<a:t xml:space="preserve">faldet</);
+  });
+
   it("bruger kundens farve og forsidefoto", { timeout: 30_000 }, async () => {
     const m = buildExportModel(input([company("a", "Solo ApS")], false));
     const { buffer } = await fillEsgTemplate(template, m, null, { content: {}, pictures: {}, summary: null, brandColor: "003750", cover: pic() });

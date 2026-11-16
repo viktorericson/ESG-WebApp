@@ -150,6 +150,8 @@ model Location {
   /// Geolokation (B1 pkt. 27e vi–vii), WGS84 decimalgrader
   latitude  Float?
   longitude Float?
+  /// BFE-nummer på den samlede faste ejendom (Matriklen). Tom = grunden findes ud fra koordinaterne.
+  bfeNumber String?
   /// Driftsperiode – tom slutdato betyder i drift
   operationalFrom DateTime?
   operationalTo   DateTime?

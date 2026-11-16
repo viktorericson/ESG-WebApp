@@ -7,6 +7,7 @@
  */
 import { type Box, CONTENT_TOP, LEFT, RIGHT_EDGE, SLIDE_BOTTOM, inch } from "./cleanup";
 import { EMU_PER_INCH, NS, Pptx, descendants, first, parse, removeShape, setParagraphText, shapes, type Slide } from "./pptx/ooxml";
+import { parseRich, type Run } from "../rich-text";
 import { formatChange, isImprovement, type Summary } from "../summary";
 
 type Element = NonNullable<ReturnType<typeof first>>;
@@ -24,23 +25,31 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 /* Tekst                                                               */
 /* ------------------------------------------------------------------ */
 
-export type Paragraph = { text: string; bullet?: boolean; bold?: boolean };
+/**
+ * Et afsnit i en tekstboks. `runs` bærer formateringen fra editoren (fed, kursiv, understreget);
+ * uden runs skrives `text` med boksens stil. `number` er nummeret i en nummereret liste.
+ */
+export type Paragraph = { text: string; bullet?: boolean; bold?: boolean; heading?: boolean; number?: number; runs?: Run[] };
 
-/** Tekst → afsnit. Linjer, der starter med "- ", "• " eller "* ", bliver punkter. Tomme linjer udelades. */
+/**
+ * Formateret tekst fra rapportindholdet → afsnit (se lib/rich-text): overskrifter, punkter,
+ * nummererede lister og fed/kursiv/understreget. Almindelig tekst giver almindelige afsnit.
+ */
 export function paragraphs(text: string): Paragraph[] {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trimEnd())
-    .filter((l) => l.trim())
-    .map((l) => {
-      const m = l.match(/^\s*[-•*]\s+(.*)$/);
-      return m ? { text: m[1], bullet: true } : { text: l.trim() };
-    });
+  let n = 0;
+  return parseRich(text).map((b) => {
+    n = b.type === "ordered" ? n + 1 : 0;
+    const p: Paragraph = { text: b.runs.map((r) => r.text).join(""), runs: b.runs };
+    if (b.type === "bullet") p.bullet = true;
+    if (b.type === "ordered") p.number = n;
+    if (b.type === "heading") p.heading = true;
+    return p;
+  });
 }
 
 /** Skønnet antal linjer ved en given bredde (tommer) og skriftstørrelse (pt) */
 function linesFor(p: Paragraph, widthIn: number, sizePt: number) {
-  const charsPerLine = Math.max(10, Math.floor((widthIn - (p.bullet ? 0.25 : 0)) * 72 / (sizePt * 0.5)));
+  const charsPerLine = Math.max(10, Math.floor((widthIn - (p.bullet || p.number ? 0.25 : 0)) * 72 / (sizePt * 0.5)));
   return Math.max(1, Math.ceil(p.text.length / charsPerLine));
 }
 
@@ -77,15 +86,25 @@ function append(slide: Slide, xml: string) {
 
 type TextStyle = { size?: number; color?: string; bold?: boolean; fill?: string; inset?: number; columns?: number; anchor?: "t" | "ctr" | "b"; align?: "l" | "ctr" | "r" };
 
-function runXml(text: string, size: number, color: string, bold: boolean) {
-  return `<a:r><a:rPr lang="da-DK" sz="${size * 100}" b="${bold ? 1 : 0}" dirty="0"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill></a:rPr><a:t xml:space="preserve">${esc(text)}</a:t></a:r>`;
+function runXml(text: string, size: number, color: string, bold: boolean, italic = false, underline = false) {
+  return `<a:r><a:rPr lang="da-DK" sz="${size * 100}" b="${bold ? 1 : 0}" i="${italic ? 1 : 0}"${underline ? ' u="sng"' : ""} dirty="0"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill></a:rPr><a:t xml:space="preserve">${esc(text)}</a:t></a:r>`;
 }
 
 function paragraphXml(p: Paragraph, s: Required<Pick<TextStyle, "size" | "color" | "bold" | "align">>) {
+  const after = p.heading ? 300 : 600;
+  const before = p.heading ? '<a:spcBef><a:spcPts val="600"/></a:spcBef>' : "";
   const pPr = p.bullet
-    ? `<a:pPr marL="228600" indent="-228600" algn="${s.align}"><a:spcAft><a:spcPts val="600"/></a:spcAft><a:buFont typeface="Arial"/><a:buChar char="•"/></a:pPr>`
-    : `<a:pPr algn="${s.align}"><a:spcAft><a:spcPts val="600"/></a:spcAft><a:buNone/></a:pPr>`;
-  return `<a:p>${pPr}${runXml(p.text, s.size, s.color, p.bold ?? s.bold)}</a:p>`;
+    ? `<a:pPr marL="228600" indent="-228600" algn="${s.align}"><a:spcAft><a:spcPts val="${after}"/></a:spcAft><a:buFont typeface="Arial"/><a:buChar char="•"/></a:pPr>`
+    : p.number
+      ? // startAt, så nummereringen fortsætter korrekt, når en liste deles over flere sider
+        `<a:pPr marL="228600" indent="-228600" algn="${s.align}"><a:spcAft><a:spcPts val="${after}"/></a:spcAft><a:buFont typeface="+mj-lt"/><a:buAutoNum type="arabicPeriod" startAt="${p.number}"/></a:pPr>`
+      : `<a:pPr algn="${s.align}">${before}<a:spcAft><a:spcPts val="${after}"/></a:spcAft><a:buNone/></a:pPr>`;
+  // Overskrifter står fed og lidt større i skabelonens mørkegrønne tekstfarve
+  const size = p.heading ? s.size + 2 : s.size;
+  const color = p.heading ? DARK : s.color;
+  const baseBold = p.heading || (p.bold ?? s.bold);
+  const runs = p.runs?.length ? p.runs : [{ text: p.text }];
+  return `<a:p>${pPr}${runs.map((r) => runXml(r.text, size, color, baseBold || !!r.bold, !!r.italic, !!r.underline)).join("")}</a:p>`;
 }
 
 /** Tekstboks med afsnit. Krymper teksten, hvis den alligevel ikke kan være der. */

@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<title>esgBRICKS flyer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* A5 stående, to sider (forside + bagside). 3 mm beskæring er lagt på via @page, hvis trykkeriet ønsker det: sæt --bleed til 3mm. */
+  @page { size: 148mm 210mm; margin: 0; }
+  :root {
+    --navy: #182c45;
+    --blue: #0583de;
+    --blue-soft: #e8f3fc;
+    --ink: #182c45;
+    --muted: #5a6b80;
+    --line: #d9e2ec;
+    --paper: #ffffff;
+    --tint: #f4f7fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: "Poppins", system-ui, sans-serif; color: var(--ink); background: #c9d1da; }
+  .page {
+    width: 148mm; height: 210mm; overflow: hidden; position: relative;
+    background: var(--paper); margin: 10mm auto; page-break-after: always;
+    display: flex; flex-direction: column;
+  }
+  @media print { body { background: none; } .page { margin: 0; } }
+
+  /* ---------- Forside ---------- */
+  .front__top { padding: 11mm 11mm 0; }
+  .logo { height: 13mm; width: auto; display: block; margin-left: -1mm; }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 2mm;
+    margin-top: 11mm; font-size: 7.5pt; font-weight: 500; letter-spacing: .02em;
+    color: var(--blue); background: var(--blue-soft); padding: 1.4mm 3mm; border-radius: 99px;
+  }
+  .kicker i { width: 1.6mm; height: 1.6mm; border-radius: 50%; background: var(--blue); }
+  h1 {
+    font-size: 30pt; line-height: 1.04; font-weight: 700; letter-spacing: -0.03em;
+    margin-top: 5mm; color: var(--navy);
+  }
+  h1 span { color: var(--blue); }
+  .lead { font-size: 10pt; line-height: 1.5; color: var(--muted); margin-top: 5mm; max-width: 112mm; }
+
+  /* produktkort */
+  .visual {
+    margin: 8mm 11mm 0; position: relative; flex: 1; min-height: 0;
+    background: var(--navy); border-radius: 5mm; overflow: hidden;
+    padding: 7mm 7mm 0;
+  }
+  .visual::before { /* klodser i baggrunden */
+    content: ""; position: absolute; inset: 0;
+    background:
+      linear-gradient(var(--navy), transparent 30%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.04) 0 14mm, transparent 14mm 15mm),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0 7mm, transparent 7mm 8mm);
+  }
+  .card {
+    position: relative; background: #fff; border-radius: 3mm; padding: 5mm;
+    box-shadow: 0 3mm 8mm rgba(0,0,0,.25);
+  }
+  .card__head { display: flex; align-items: center; gap: 2mm; font-size: 7pt; color: var(--muted); }
+  .card__head b { color: var(--navy); font-weight: 600; font-size: 8.5pt; }
+  .pill { margin-left: auto; font-size: 6.5pt; font-weight: 600; color: #127a3c; background: #e3f5ea; padding: .8mm 2.4mm; border-radius: 99px; }
+  .stat { display: flex; align-items: baseline; gap: 2.5mm; margin-top: 4mm; }
+  .stat__num { font-size: 22pt; font-weight: 700; letter-spacing: -0.03em; color: var(--navy); }
+  .stat__sub { font-size: 7pt; color: var(--muted); }
+  .stat__delta { font-size: 7pt; font-weight: 600; color: var(--blue); }
+  .bars { display: flex; align-items: flex-end; gap: 1.4mm; height: 14mm; margin-top: 3mm; }
+  .bars i { flex: 1; background: var(--blue-soft); border-radius: .8mm .8mm 0 0; }
+  .bars i.on { background: var(--blue); }
+  .scopes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm; margin-top: 4mm; }
+  .scope { background: var(--tint); border-radius: 1.8mm; padding: 2.2mm 2.6mm; }
+  .scope small { display: block; font-size: 6pt; color: var(--muted); }
+  .scope b { font-size: 9pt; font-weight: 600; color: var(--navy); }
+  .files { display: flex; gap: 2mm; margin-top: 4mm; }
+  .file { display: flex; align-items: center; gap: 1.6mm; font-size: 6.5pt; color: var(--navy); border: .3mm solid var(--line); border-radius: 1.6mm; padding: 1.4mm 2.4mm; }
+  .file img { height: 1.25em; width: auto; display: block; }
+  .file em { font-style: normal; font-weight: 700; font-size: 5.5pt; color: #fff; padding: .5mm 1mm; border-radius: .6mm; }
+
+  .front__foot {
+    display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6mm;
+    padding: 7mm 11mm 10mm;
+  }
+  .price { font-size: 21pt; font-weight: 700; letter-spacing: -0.03em; color: var(--navy); line-height: 1; }
+  .price small { display: block; font-size: 7pt; font-weight: 500; letter-spacing: 0; color: var(--muted); margin-top: 1.5mm; }
+  .promise { font-size: 8pt; line-height: 1.45; color: var(--muted); border-left: .6mm solid var(--blue); padding-left: 4mm; }
+  .promise b { color: var(--navy); font-weight: 600; }
+
+  /* ---------- Bagside ---------- */
+  .back { padding: 11mm 11mm 0; }
+  .label { font-size: 7pt; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--blue); }
+  h2 { font-size: 17pt; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; color: var(--navy); margin-top: 2.5mm; }
+  h2 span { color: var(--muted); font-weight: 500; }
+  .steps { display: grid; gap: 3.5mm; margin-top: 6mm; }
+  .step { display: grid; grid-template-columns: 9mm 1fr; gap: 4mm; align-items: start; }
+  .step__n {
+    width: 9mm; height: 9mm; border-radius: 2mm; background: var(--blue); color: #fff;
+    display: grid; place-items: center; font-weight: 700; font-size: 11pt;
+  }
+  .step h3 { font-size: 9.5pt; font-weight: 600; color: var(--navy); }
+  .step p { font-size: 8pt; line-height: 1.45; color: var(--muted); margin-top: .6mm; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-top: 8mm; padding-top: 6mm; border-top: .3mm solid var(--line); }
+  .cols h4 { font-size: 8.5pt; font-weight: 600; color: var(--navy); margin-bottom: 2.5mm; }
+  .checks { list-style: none; display: grid; gap: 1.6mm; }
+  .checks li { position: relative; padding-left: 5mm; font-size: 7.6pt; line-height: 1.4; color: var(--ink); }
+  .checks li::before {
+    content: ""; position: absolute; left: 0; top: .9mm; width: 3mm; height: 3mm; border-radius: .7mm;
+    background: var(--blue) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 8.3 2.6 2.6L12 5.4' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat;
+  }
+  .uses li::before { background: var(--blue-soft); }
+  .uses li::after { content: ""; position: absolute; left: 1mm; top: 1.9mm; width: 1mm; height: 1mm; border-radius: 50%; background: var(--blue); }
+  .pcf { margin-top: 4mm; background: var(--tint); border-radius: 2.5mm; padding: 3.5mm 4mm; font-size: 7.4pt; line-height: 1.45; color: var(--muted); }
+  .pcf b { display: block; color: var(--navy); font-weight: 600; font-size: 8pt; margin-bottom: .6mm; }
+
+  .cta {
+    margin-top: auto; background: var(--navy); color: #fff;
+    padding: 8mm 11mm 9mm; display: grid; grid-template-columns: 1fr auto; gap: 6mm; align-items: center;
+  }
+  .cta h3 { font-size: 15pt; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+  .cta p { font-size: 8pt; line-height: 1.45; color: #b7c4d4; margin-top: 2mm; }
+  .contact { margin-top: 4mm; display: grid; gap: 1mm; font-size: 8.5pt; font-weight: 500; }
+  .contact span { color: #8fc8f2; font-weight: 400; display: inline-block; width: 14mm; font-size: 7pt; }
+  .qr img { width: 100%; height: 100%; display: block; }
+  .qr {
+    width: 24mm; height: 24mm; border-radius: 2mm; background: #fff; color: var(--muted);
+    display: grid; place-items: center; overflow: hidden;
+  }
+  .ph { background: #fff3b0; color: #6b5300; padding: 0 1mm; border-radius: .6mm; }
+  .cta .ph { background: rgba(255,243,176,.18); color: #ffe57a; }
+</style>
+</head>
+<body>
+
+<!-- ============ FORSIDE ============ -->
+<section class="page front">
+  <div class="front__top">
+    <img class="logo" src="logo.png" alt="esgBRICKS, powered by Capana">
+    <span class="kicker"><i></i>Efter VS-standarden (tidligere VSME)</span>
+    <h1>Vi laver jeres<br><span>ESG-rapport.</span></h1>
+    <p class="lead">I leverer bilagene. Vi samler jeres data, beregner jeres CO₂e med Klimakompassets faktorer og leverer den færdige rapport, klar til banken og kunderne.</p>
+  </div>
+
+  <div class="visual">
+    <div class="card">
+      <div class="card__head"><b>ESG-opgørelse 2025</b>· konsolideret<span class="pill">Godkendt</span></div>
+      <div class="stat">
+        <span class="stat__num">486 t</span><span class="stat__sub">CO₂e, Scope 1 og 2</span><span class="stat__delta">↓ 5 % mod 2024</span>
+      </div>
+      <div class="bars">
+        <i style="height:90%"></i><i style="height:84%"></i><i style="height:76%"></i><i style="height:62%"></i><i style="height:52%"></i><i style="height:45%"></i><i style="height:44%"></i><i style="height:48%"></i><i style="height:58%"></i><i style="height:70%"></i><i style="height:82%"></i><i class="on" style="height:88%"></i>
+      </div>
+      <div class="scopes">
+        <div class="scope"><small>Scope 1</small><b>212 t</b></div>
+        <div class="scope"><small>Scope 2</small><b>274 t</b></div>
+        <div class="scope"><small>Moduler</small><b>B1–B11</b></div>
+      </div>
+      <div class="files">
+        <span class="file"><img src="powerpoint.png" alt="">PowerPoint</span>
+        <span class="file"><em style="background:#c62f2f">PDF</em>PDF</span>
+        <span class="file"><img src="excel.png" alt="">Klimaregnskab</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="front__foot">
+    <div class="price">14.999 kr.<small>om året ekskl. moms</small></div>
+    <p class="promise"><b>Platform og rådgivning er med i prisen.</b> Og I betaler kun, hvis I er tilfredse med rapporten.</p>
+  </div>
+</section>
+
+<!-- ============ BAGSIDE ============ -->
+<section class="page">
+  <div class="back">
+    <p class="label">Sådan foregår det</p>
+    <h2>Jeres ESG-rapport i 3 trin. <span>I leverer bilagene, vi gør resten.</span></h2>
+
+    <div class="steps">
+      <div class="step"><span class="step__n">1</span><div><h3>Vi samler jeres ESG-data</h3><p>Regninger, løndata og politikker lægges ind i esgBRICKS ved hvert felt, så alt er dokumenteret.</p></div></div>
+      <div class="step"><span class="step__n">2</span><div><h3>Vi beregner jeres CO₂e</h3><p>Scope 1, 2 og 3 med Klimakompassets emissionsfaktorer for jeres rapporteringsår.</p></div></div>
+      <div class="step"><span class="step__n">3</span><div><h3>I får den færdige rapport</h3><p>I Erhvervsstyrelsens ESG-skabelon som PowerPoint og PDF, klar til bank og hjemmeside.</p></div></div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <h4>Det får I for 14.999 kr./år</h4>
+        <ul class="checks">
+          <li>Årlig ESG-rapport efter VS-standarden</li>
+          <li>Indsamling og struktur af jeres data</li>
+          <li>Klimaregnskab for Scope 1, 2 og 3</li>
+          <li>Selskaber og lokationer samlet</li>
+          <li>Vi følger ændringer i standarden</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Brug rapporten</h4>
+        <ul class="checks uses">
+          <li>I dialogen med banken</li>
+          <li>Over for kunder og samarbejdspartnere</li>
+          <li>I offentlige udbud</li>
+          <li>På jeres egen hjemmeside</li>
+        </ul>
+        <div class="pcf"><b>Klimaregnskab for produkter</b>CO₂e pr. produkt eller leverance til tilbud og udbud. Pris efter aftale.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta">
+    <div>
+      <h3>Book et uforpligtende opkald</h3>
+      <p>Vi ringer og hører, hvad I skal bruge rapporten til.</p>
+      <div class="contact">
+        <div><span>Web</span><b class="ph">www.esgbricks.dk</b></div>
+        <div><span>Mail</span><b class="ph">kontakt@esgbricks.dk</b></div>
+        <div><span>Telefon</span><b class="ph">+45 20 87 02 11</b></div>
+      </div>
+    </div>
+    <div class="qr"><img src="qr.svg" alt="QR-kode til booking"></div>
+  </div>
+</section>
+
+</body>
+</html>
