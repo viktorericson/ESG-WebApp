@@ -161,3 +161,53 @@ Alle ændringer gemmes i `AdminLog`, og ændringer i en koncern skrives også i 
 ## Teknik
 
 Next.js 16 (App Router, uden Cache Components), React 19, Tailwind 4, Prisma 7 med `@prisma/adapter-pg` og PostgreSQL. Login-links og invitationer bruges via en knap (POST), så mailscannere ikke kan bruge dem op ved at åbne dem.
+
+## Drift (Docker / CapRover)
+
+`Dockerfile`, `docker-entrypoint.sh` og `captain-definition` bygger og starter appen i produktion. Ved hver start køres
+`prisma migrate deploy`, så databasen følger koden.
+
+### Det skal være på plads
+
+| Hvad | Hvordan |
+|---|---|
+| Postgres | `DATABASE_URL` – en database på serveren eller en ekstern (fx Neon/Supabase, vælg EU-region) |
+| Offentlig adresse | `APP_URL`, fx `https://esg.example.dk` (bruges i login- og invitationslinks) |
+| Mail | `MAIL_FROM` plus enten `SMTP_URL` eller Microsoft Graph (`MS_GRAPH_TENANT_ID`, `MS_GRAPH_CLIENT_ID`, `MS_GRAPH_CLIENT_SECRET`). **Påkrævet:** i produktion sendes login-links kun pr. mail |
+| Vedvarende filer | Et volumen på `/app/uploads` (dokumentation, logoer og billeder). Uden det forsvinder filerne ved hver udrulning |
+| Port | Containeren lytter på `3000` |
+
+Valgfrit: `ALLOW_SIGNUP` (`false` = kun adgang via invitation), `PLATFORM_ADMIN_EMAILS`, `DATAFORSYNINGEN_TOKEN`,
+`CVR_USER_AGENT`, `GEOCODE_USER_AGENT`, `DATABASE_POOL_MAX` (sæt den lavt, hvis databasen har få forbindelser) og
+`SKIP_MIGRATIONS=true` (spring migreringer over ved start).
+
+### CapRover
+
+1. Opret en app, og slå **Has Persistent Data** til.
+2. *App Configs*: sæt miljøvariablerne ovenfor, **Container HTTP Port** til `3000`, og tilføj en *Persistent Directory*
+   med sti `/app/uploads`.
+3. *HTTP Settings*: tilknyt domænet, og slå HTTPS til.
+4. Udrul – enten `caprover deploy` fra projektmappen (serveren bygger imaget) eller byg imaget et andet sted og udrul det
+   under *Deployment → Deploy via ImageName*. Buildet bruger 1–2 GB hukommelse, så på en lille server er det sidste sikrest:
+
+       docker build --platform linux/amd64 -t <registry>/esg-webapp:latest .
+       docker push <registry>/esg-webapp:latest
+
+5. Emissionsfaktorerne importeres automatisk ved første start, hvis databasen ingen har. En ny version importeres med
+   `npm run factors:import` (se `data/factors/README.md`).
+
+Uden mailopsætning skrives login-links i containerens log (fanen *Logs* i CapRover) i stedet for at blive sendt.
+
+### Mail via Microsoft 365 (Graph)
+
+1. Opret en postkasse til afsendelse, fx en delt postkasse `noreply@…`, og sæt `MAIL_FROM="esgBRICKS <noreply@…>"`.
+2. Registrér en app i Entra, tilføj Microsoft Graph-**applikations**tilladelsen `Mail.Send`, og giv admin-samtykke.
+3. Opret en client secret (notér udløbsdatoen – mail stopper, når den udløber).
+4. Begræns appen til afsenderpostkassen i Exchange Online (application access policy eller RBAC for Applications);
+   ellers kan den sende som enhver postkasse i organisationen.
+5. Sæt `MS_GRAPH_TENANT_ID`, `MS_GRAPH_CLIENT_ID` og `MS_GRAPH_CLIENT_SECRET` på appen.
+
+### PDF-eksport
+
+PDF kræver LibreOffice, som ikke er med i imaget som standard (ca. 500 MB ekstra). Byg med
+`--build-arg INSTALL_LIBREOFFICE=true`, eller ret standardværdien i `Dockerfile`. PowerPoint-eksporten virker uden.

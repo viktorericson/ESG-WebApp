@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge, Button, buttonStyles, Card, Textarea, cx } from "@/components/ui";
 import { saveModuleAnswers, setModuleStatus } from "@/lib/actions/module-data";
@@ -61,6 +62,7 @@ export function ModuleForm({
   nav?: ModuleNav;
 }) {
   const def = getModule(moduleKey)!;
+  const router = useRouter();
   const base = { orgId, periodId, moduleKey, target };
 
   const [answers, setAnswers] = useState<Answers>(initialAnswers);
@@ -145,6 +147,21 @@ export function ModuleForm({
     } else setStatusError(res.error);
   }
 
+  // "Gå til næste punkt": næste modul, der ikke er færdigt – ellers tilbage til oversigten. Gemmer først.
+  const nextPoint = nav ? (nav.nextOpen ?? { title: nav.overviewLabel, href: nav.overviewHref }) : null;
+  const [leaving, setLeaving] = useState(false);
+  async function goNext() {
+    if (!nextPoint) return;
+    setLeaving(true);
+    if (canEdit && !(await flush())) return setLeaving(false);
+    router.push(nextPoint.href);
+  }
+  const nextButton = nextPoint && (
+    <Button variant="secondary" onClick={goNext} disabled={leaving} title={nav?.nextOpen ? `Næste: ${nextPoint.title}` : `Tilbage til ${nextPoint.title}`}>
+      Gå til næste punkt →
+    </Button>
+  );
+
   const readOnly = !canEdit || status === "NOT_RELEVANT";
   const pct = ev.required ? Math.round((ev.filled / ev.required) * 100) : ev.complete ? 100 : 0;
   const missingCount = ev.required - ev.filled;
@@ -204,6 +221,7 @@ export function ModuleForm({
                   </Button>
                 </>
               )}
+              {nextButton}
             </div>
           )}
         </div>
@@ -380,6 +398,7 @@ export function ModuleForm({
               <Button onClick={() => changeStatus("COMPLETED")} disabled={!ev.complete}>
                 Markér som færdig
               </Button>
+              {nextButton}
             </div>
           </div>
         ) : (

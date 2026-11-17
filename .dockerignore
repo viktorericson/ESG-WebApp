@@ -1,0 +1,17 @@
+.git
+.claude
+node_modules
+.next
+out
+build
+coverage
+uploads
+marketing
+src/generated/prisma
+.env*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+npm-debug.log*
+public/landing/.taste-skill
