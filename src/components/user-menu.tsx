@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { logout } from "@/lib/actions/auth";
-import { isPlatformAdmin } from "@/lib/env";
+import { hasAdminAccess } from "@/lib/admin";
+import { getCurrentUser } from "@/lib/auth";
 
-export function UserMenu({ email }: { email: string }) {
+export async function UserMenu({ email }: { email: string }) {
+  const user = await getCurrentUser();
   return (
     <form action={logout} className="flex items-center gap-3 text-sm">
-      {isPlatformAdmin(email) && (
+      {hasAdminAccess(user) && (
         <Link href="/admin" className="rounded-md px-2 py-1 font-medium text-brand-700 hover:bg-brand-50">
           Admin
         </Link>

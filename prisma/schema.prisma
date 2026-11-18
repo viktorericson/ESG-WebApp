@@ -21,6 +21,8 @@ model User {
   lastLoginAt DateTime?
   /// Spærret af platformens ejer: kan ikke logge ind, og eksisterende sessioner virker ikke
   disabledAt  DateTime?
+  /// Platform-admin givet i appen. Platformens ejere (PLATFORM_ADMIN_EMAILS) er altid admin.
+  platformAdmin Boolean @default(false)
 
   sessions            Session[]
   memberships         Membership[]
@@ -31,6 +33,7 @@ model User {
   submissionsSent     CompanySubmission[] @relation("SubmittedBy")
   submissionsReviewed CompanySubmission[] @relation("ReviewedBy")
   adminActions        AdminLog[]
+  impersonations      Session[]           @relation("Impersonator")
 }
 
 /// Handlinger foretaget i platformens admin-dashboard (på tværs af koncerner)
@@ -54,8 +57,11 @@ model Session {
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())
+  /// Sat, når en platform-admin er logget ind som brugeren ("Log ind som")
+  impersonatorId String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonator User? @relation("Impersonator", fields: [impersonatorId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -90,6 +96,15 @@ model Organization {
   coverKey         String?
   coverContentType String?
   coverUpdatedAt   DateTime?
+  /// Capana-licens (license.capana.dk). Én nøgle pr. koncern. Seneste gyldige svar gemmes, så en genstart
+  /// ikke afhænger af licensserveren; licenseExpiresAt er null, når nøglen ikke er bekræftet.
+  licenseKey       String?   @unique
+  licenseLimitType String?
+  licenseLimit     Int?
+  licenseExpiresAt DateTime?
+  licenseCheckedAt DateTime?
+  /// Årsag fra seneste mislykkede tjek (fx "unreachable", "not_found")
+  licenseError     String?
 
   companies   Company[]
   memberships Membership[]

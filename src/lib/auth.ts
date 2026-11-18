@@ -2,16 +2,28 @@ import "server-only";
 import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import { db } from "./db";
-import { getSessionUserId } from "./session";
+import { getSession } from "./session";
 import { Access } from "./permissions";
 
-export type CurrentUser = { id: string; email: string; name: string | null };
+export type CurrentUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  /** Platform-admin givet i appen (ejerne i PLATFORM_ADMIN_EMAILS tjekkes særskilt) */
+  platformAdmin: boolean;
+  /** Sat, når en platform-admin er logget ind som denne bruger */
+  impersonator: { id: string; email: string } | null;
+};
 
 /** Data Access Layer: læser sessionen én gang pr. request. */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const userId = await getSessionUserId();
-  if (!userId) return null;
-  return db.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true } });
+  const session = await getSession();
+  if (!session) return null;
+  const [user, impersonator] = await Promise.all([
+    db.user.findUnique({ where: { id: session.userId }, select: { id: true, email: true, name: true, platformAdmin: true } }),
+    session.impersonatorId ? db.user.findUnique({ where: { id: session.impersonatorId }, select: { id: true, email: true } }) : null,
+  ]);
+  return user ? { ...user, impersonator } : null;
 });
 
 export async function requireUser(): Promise<CurrentUser> {

@@ -1,18 +1,24 @@
 import "server-only";
 import { notFound } from "next/navigation";
 import type { Prisma } from "@/generated/prisma/client";
-import { requireUser } from "./auth";
+import { requireUser, type CurrentUser } from "./auth";
 import { db } from "./db";
 import { isPlatformAdmin } from "./env";
 
 /**
- * Platformens ejer: adgang til /admin på tværs af alle koncerner.
- * Styres af PLATFORM_ADMIN_EMAILS i miljøet, så ingen kan give sig selv adgangen gennem appen.
+ * Adgang til /admin på tværs af alle koncerner har:
+ * - platformens ejere (PLATFORM_ADMIN_EMAILS i miljøet) – kan ikke fjernes gennem appen
+ * - platform-admins, som en ejer eller anden admin har givet adgangen i appen
+ * Under "log ind som" er man den anden bruger og har ikke admin-adgang, før man går tilbage.
  * Andre får 404, så det ikke afsløres, at siden findes.
  */
+export const isPlatformOwner = (email: string | null | undefined) => isPlatformAdmin(email);
+export const hasAdminAccess = (u: Pick<CurrentUser, "email" | "platformAdmin" | "impersonator"> | null | undefined) =>
+  !!u && !u.impersonator && (isPlatformOwner(u.email) || u.platformAdmin);
+
 export async function requirePlatformAdmin() {
   const user = await requireUser();
-  if (!isPlatformAdmin(user.email)) notFound();
+  if (!hasAdminAccess(user)) notFound();
   return user;
 }
 

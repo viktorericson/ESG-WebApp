@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { env, showDevLinks } from "@/lib/env";
 import { sendMail } from "@/lib/mail";
-import { createSession, destroySession } from "@/lib/session";
+import { adminLog } from "@/lib/admin";
+import { createSession, destroySession, stopImpersonation } from "@/lib/session";
 import { generateToken, hashToken } from "@/lib/tokens";
 import { emailSchema, type ActionState } from "@/lib/validation";
 
@@ -66,5 +67,15 @@ export async function verifyLogin(_prev: ActionState, formData: FormData): Promi
 
 export async function logout() {
   await destroySession();
+  redirect("/login");
+}
+
+/** "Tilbage til admin": afslutter "log ind som" og genskaber adminens egen session */
+export async function endImpersonation() {
+  const { adminId, userId } = await stopImpersonation();
+  if (adminId && userId) {
+    await adminLog({ actorId: adminId, action: "user.impersonate.stop", targetType: "User", targetId: userId });
+    redirect(`/admin/users/${userId}`);
+  }
   redirect("/login");
 }

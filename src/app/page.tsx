@@ -42,9 +42,19 @@ export default async function Home() {
         <Card>
           <CardHeader
             title="Opret koncern"
-            description="Opret koncernen og dens øverste moderselskab. Datterselskaber og lokationer tilføjes bagefter."
+            description={`Opret koncernen og dens øverste moderselskab${env.licenseRequired ? " med jeres licensnøgle" : ""}. Datterselskaber og lokationer tilføjes bagefter.`}
           />
           <ActionForm action={createOrganization} className="space-y-4 p-5">
+            {env.licenseRequired && (
+              <div>
+                <Label htmlFor="licenseKey">Licensnøgle</Label>
+                <Input id="licenseKey" name="licenseKey" required autoComplete="off" spellCheck={false} className="mt-1 font-mono" aria-describedby="licenseKey-hint" />
+                <p id="licenseKey-hint" className="mt-1 text-xs text-neutral-500">
+                  Den licensnøgle, I har fået fra Capana. Den knyttes til koncernen, og I bliver koncernadmin. Har du fået en invitation, skal du i stedet bruge linket i mailen.
+                </p>
+                <FieldError name="licenseKey" />
+              </div>
+            )}
             <div>
               <Label htmlFor="orgName">Koncernens navn</Label>
               <Input id="orgName" name="orgName" required className="mt-1" placeholder="fx Hansen Gruppen" />

@@ -8,6 +8,11 @@ export const env = {
   graph: graph.tenantId && graph.clientId && graph.clientSecret ? { tenantId: graph.tenantId, clientId: graph.clientId, clientSecret: graph.clientSecret } : null,
   mailFrom: process.env.MAIL_FROM ?? "ESG Rapportering <noreply@localhost>",
   isProd: process.env.NODE_ENV === "production",
+  /** Capana-licens: kræves for at oprette og bruge en koncern. Standard: til i produktion, fra i udvikling. */
+  licenseRequired: (process.env.LICENSE_REQUIRED ?? (process.env.NODE_ENV === "production" ? "true" : "false")) === "true",
+  licenseServerUrl: (process.env.LICENSE_SERVER_URL ?? "https://license.capana.dk").replace(/\/+$/, ""),
+  /** Licenstypen, som licensserveren skal have registreret nøglerne under */
+  licenseType: process.env.LICENSE_TYPE ?? "extension",
   /** Platformens ejere (kommasepareret): får adgang til /admin på tværs af alle koncerner */
   platformAdmins: (process.env.PLATFORM_ADMIN_EMAILS ?? "")
     .split(",")

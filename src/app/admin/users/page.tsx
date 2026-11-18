@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Badge, Card, EmptyState, Input, PageHeader, buttonStyles } from "@/components/ui";
+import { ActionForm, FieldError, SubmitButton } from "@/components/action-form";
+import { Badge, Card, CardHeader, EmptyState, Input, Label, PageHeader, Select, buttonStyles } from "@/components/ui";
+import { createUser } from "@/lib/actions/admin";
 import { formatDate, formatTime, requirePlatformAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { isPlatformAdmin } from "@/lib/env";
@@ -13,6 +15,7 @@ export default async function AdminUsers({ searchParams }: PageProps<"/admin/use
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const onlyDisabled = sp.status === "disabled";
 
+  const orgs = await db.organization.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
   const users = await db.user.findMany({
     where: {
       ...(q ? { OR: [{ email: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {}),
@@ -23,13 +26,48 @@ export default async function AdminUsers({ searchParams }: PageProps<"/admin/use
     include: {
       memberships: { include: { organization: { select: { id: true, name: true } } } },
       _count: { select: { attachments: true } },
-      sessions: { where: { expiresAt: { gt: new Date() } }, select: { id: true } },
+      sessions: { where: { expiresAt: { gt: new Date() }, impersonatorId: null }, select: { id: true } },
     },
   });
 
   return (
     <>
       <PageHeader title="Brugere" description="Alle brugere på platformen og deres adgange." />
+
+      <Card className="mb-6">
+        <CardHeader title="Opret bruger" description="Brugeren logger ind med et login-link på sin e-mail. Giv evt. adgang til en koncern med det samme." />
+        <ActionForm action={createUser} className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto_auto] lg:items-end">
+          <div>
+            <Label htmlFor="new-email">E-mail</Label>
+            <Input id="new-email" name="email" type="email" required className="mt-1" />
+            <FieldError name="email" />
+          </div>
+          <div>
+            <Label htmlFor="new-name">Navn (valgfrit)</Label>
+            <Input id="new-name" name="name" className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="new-org">Koncern (valgfrit)</Label>
+            <Select id="new-org" name="organizationId" defaultValue="" className="mt-1">
+              <option value="">Ingen</option>
+              {orgs.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </Select>
+            <FieldError name="organizationId" />
+          </div>
+          <div>
+            <Label htmlFor="new-role">Rolle</Label>
+            <Select id="new-role" name="role" defaultValue="ORG_ADMIN" className="mt-1">
+              <option value="ORG_ADMIN">{ROLE_LABELS.ORG_ADMIN}</option>
+              <option value="VIEWER">{ROLE_LABELS.VIEWER}</option>
+            </Select>
+          </div>
+          <SubmitButton>Opret bruger</SubmitButton>
+        </ActionForm>
+      </Card>
 
       <form className="mb-4 flex flex-wrap items-center gap-2" role="search">
         <Input name="q" defaultValue={q} placeholder="Søg på e-mail eller navn" className="max-w-xs" aria-label="Søg" />
@@ -78,7 +116,7 @@ export default async function AdminUsers({ searchParams }: PageProps<"/admin/use
                         </Link>
                         <div className="mt-0.5 flex flex-wrap gap-1.5">
                           {u.name && <span className="text-xs text-neutral-500">{u.name}</span>}
-                          {isPlatformAdmin(u.email) && <Badge>Platformejer</Badge>}
+                          {isPlatformAdmin(u.email) ? <Badge>Platformejer</Badge> : u.platformAdmin && <Badge>Platform-admin</Badge>}
                           {u.disabledAt && <Badge tone="red">Spærret</Badge>}
                           {u.sessions.length > 0 && !u.disabledAt && <Badge>Logget ind</Badge>}
                         </div>

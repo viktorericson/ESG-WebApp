@@ -15,6 +15,14 @@ const ADMIN_ACTIONS: Record<string, string> = {
   "membership.remove": "fjernede adgang",
   "membership.grant": "gav adgang",
   "attachment.delete": "slettede fil",
+  "organization.export": "eksporterede koncern",
+  "organization.import": "importerede koncern",
+  "organization.create": "oprettede koncern",
+  "user.create": "oprettede bruger",
+  "user.admin.grant": "gjorde til platform-admin",
+  "user.admin.revoke": "fjernede som platform-admin",
+  "user.impersonate": "loggede ind som",
+  "user.impersonate.stop": "gik tilbage fra",
 };
 
 function Stat({ label, value, hint, href }: { label: string; value: string | number; hint?: string; href?: string }) {

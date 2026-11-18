@@ -177,7 +177,7 @@ Next.js 16 (App Router, uden Cache Components), React 19, Tailwind 4, Prisma 7 m
 | Vedvarende filer | Et volumen på `/app/uploads` (dokumentation, logoer og billeder). Uden det forsvinder filerne ved hver udrulning |
 | Port | Containeren lytter på `3000` |
 
-Valgfrit: `ALLOW_SIGNUP` (`false` = kun adgang via invitation), `PLATFORM_ADMIN_EMAILS`, `DATAFORSYNINGEN_TOKEN`,
+Valgfrit: `LICENSE_REQUIRED`, `LICENSE_SERVER_URL` og `LICENSE_TYPE` (se *Licens* nedenfor), `ALLOW_SIGNUP` (`false` = kun adgang via invitation), `PLATFORM_ADMIN_EMAILS`, `DATAFORSYNINGEN_TOKEN`,
 `CVR_USER_AGENT`, `GEOCODE_USER_AGENT`, `DATABASE_POOL_MAX` (sæt den lavt, hvis databasen har få forbindelser) og
 `SKIP_MIGRATIONS=true` (spring migreringer over ved start).
 
@@ -206,6 +206,23 @@ Uden mailopsætning skrives login-links i containerens log (fanen *Logs* i CapRo
 4. Begræns appen til afsenderpostkassen i Exchange Online (application access policy eller RBAC for Applications);
    ellers kan den sende som enhver postkasse i organisationen.
 5. Sæt `MS_GRAPH_TENANT_ID`, `MS_GRAPH_CLIENT_ID` og `MS_GRAPH_CLIENT_SECRET` på appen.
+
+### Licens
+
+En koncern kan kun oprettes med en gyldig Capana-licensnøgle, og den knyttes til koncernen (én nøgle pr. koncern).
+Inviterede brugere skal ikke bruge en nøgle. Nøglen tjekkes mod Capanas licensserver (capana-license-backend,
+standard `https://license.capana.dk`) som en extension-licens: `GET /license/<nøgle>`, der svarer `{ _id, expires }` eller 404.
+Sæt `LICENSE_TYPE` (fx `mcp`) for at bruge en anden licenstype; så sendes `?type=<LICENSE_TYPE>`, og svaret har også `type`,
+`limitType` og `limit`.
+
+- Licensen tjekkes igen hver time, når koncernen bruges. Kan serveren ikke nås, gælder det seneste gyldige svar i 7 dage;
+  en ukendt eller tilbagekaldt nøgle gælder med det samme.
+- Uden gyldig licens er koncernen låst: koncernadmin ser en side, hvor en ny nøgle kan indtastes; andre ser en besked.
+  Data slettes ikke. Nøglen kan også skiftes under *Indstillinger*.
+- Extension-licenser har ingen grænse. Ved andre typer begrænser `limitType: "users"` antal brugere (medlemmer plus åbne
+  invitationer); andre grænsetyper vises, men håndhæves ikke.
+- Koncernadmin får et varsel 30 dage før licensen udløber.
+- `LICENSE_REQUIRED` er som standard `true` i produktion og `false` i udvikling.
 
 ### PDF-eksport
 

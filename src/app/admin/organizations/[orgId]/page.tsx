@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Badge, Card, CardHeader, EmptyState, PageHeader, Select } from "@/components/ui";
-import { grantOrgAccess } from "@/lib/actions/admin";
-import { formatBytes, formatDate, formatTime, requirePlatformAdmin } from "@/lib/admin";
+import { ActionForm, FieldError, SubmitButton } from "@/components/action-form";
+import { Badge, Card, CardHeader, EmptyState, Input, PageHeader, Select } from "@/components/ui";
+import { grantOrgAccess, impersonateUser, updateUser } from "@/lib/actions/admin";
+import { formatBytes, formatDate, formatTime, isPlatformOwner, requirePlatformAdmin } from "@/lib/admin";
 import { ACTION_LABELS } from "@/lib/audit-labels";
 import { db } from "@/lib/db";
+import { LICENSE_MESSAGES, licenseValidity, maskKey } from "@/lib/license";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { SUBMISSION_ICON, SUBMISSION_LABELS, SUBMISSION_TONE } from "@/lib/review";
 import { REPORT_STATUS_LABELS } from "@/lib/validation";
@@ -34,6 +35,9 @@ export default async function AdminOrganization({ params }: PageProps<"/admin/or
 
   const files = await db.attachment.aggregate({ where: { moduleData: { company: { organizationId: orgId } } }, _count: true, _sum: { size: true } });
   const ownAccess = org.memberships.filter((m) => m.userId === admin.id);
+  // Koncernadmins (hele koncernen), én gang pr. bruger
+  const orgAdmins = org.memberships.filter((m, i, all) => m.role === "ORG_ADMIN" && !m.companyId && !m.locationId && all.findIndex((x) => x.userId === m.userId && x.role === "ORG_ADMIN") === i);
+  const license = licenseValidity(org, new Date());
 
   return (
     <>
@@ -42,13 +46,18 @@ export default async function AdminOrganization({ params }: PageProps<"/admin/or
       </Link>
       <PageHeader
         title={org.name}
-        description={`Oprettet ${formatDate(org.createdAt)} · ${org.companies.filter((c) => !c.archivedAt).length} selskaber · ${org.memberships.length} adgange · ${files._count} filer (${formatBytes(files._sum.size ?? 0)})`}
+        description={`Oprettet ${formatDate(org.createdAt)} · ${org.companies.filter((c) => !c.archivedAt).length} selskaber · ${org.memberships.length} adgange · ${files._count} filer (${formatBytes(files._sum.size ?? 0)}) · Licens ${org.licenseKey ? `${maskKey(org.licenseKey)}: ${license.ok ? `gyldig til ${formatDate(license.license.expiresAt)}` : LICENSE_MESSAGES[license.reason].toLowerCase()}` : "mangler"}`}
         action={
-          ownAccess.length ? (
-            <Link href={`/org/${org.id}`} className="text-sm font-medium text-brand-700 hover:underline">
-              Åbn koncernen →
-            </Link>
-          ) : undefined
+          <span className="flex flex-wrap items-center gap-4">
+            <a href={`/api/admin/organizations/${org.id}/export`} download className="text-sm font-medium text-brand-700 hover:underline">
+              Eksportér koncern
+            </a>
+            {ownAccess.length > 0 && (
+              <Link href={`/org/${org.id}`} className="text-sm font-medium text-brand-700 hover:underline">
+                Åbn koncernen →
+              </Link>
+            )}
+          </span>
         }
       />
 
@@ -96,6 +105,45 @@ export default async function AdminOrganization({ params }: PageProps<"/admin/or
                   </tbody>
                 </table>
               </div>
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader title="Koncernadmins" description="Ret e-mail (brugeren logges ud og logger ind med den nye adresse), eller log ind som koncernadmin for at udfylde data." />
+            {orgAdmins.length === 0 ? (
+              <EmptyState>Koncernen har ingen koncernadmin. Opret en under Brugere, eller giv dig selv adgang.</EmptyState>
+            ) : (
+              <ul className="divide-y divide-neutral-100 text-sm">
+                {orgAdmins.map((m) => {
+                  const protectedUser = m.userId === admin.id || m.user.platformAdmin || isPlatformOwner(m.user.email);
+                  return (
+                    <li key={m.id} className="flex flex-wrap items-start gap-3 px-5 py-3">
+                      <ActionForm action={updateUser} className="flex min-w-0 flex-1 flex-wrap items-start gap-2">
+                        <input type="hidden" name="userId" value={m.userId} />
+                        <div className="min-w-56 flex-1">
+                          <Input name="email" type="email" required defaultValue={m.user.email} aria-label={`E-mail for ${m.user.email}`} disabled={isPlatformOwner(m.user.email)} />
+                          <FieldError name="email" />
+                        </div>
+                        {!isPlatformOwner(m.user.email) && (
+                          <SubmitButton variant="secondary" pendingText="…">
+                            Gem e-mail
+                          </SubmitButton>
+                        )}
+                      </ActionForm>
+                      {!protectedUser && !m.user.disabledAt && (
+                        <ActionForm action={impersonateUser}>
+                          <input type="hidden" name="userId" value={m.userId} />
+                          <input type="hidden" name="organizationId" value={org.id} />
+                          <SubmitButton variant="ghost" pendingText="…">
+                            Log ind som
+                          </SubmitButton>
+                        </ActionForm>
+                      )}
+                      {m.user.disabledAt && <Badge tone="red">Spærret</Badge>}
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </Card>
 

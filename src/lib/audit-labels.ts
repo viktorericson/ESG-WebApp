@@ -1,6 +1,7 @@
 /** Danske tekster til koncernernes aktivitetslog */
 export const ACTION_LABELS: Record<string, string> = {
   "organization.create": "oprettede koncernen",
+  "organization.license": "skiftede licensnøgle",
   "organization.rename": "omdøbte koncernen",
   "company.create": "oprettede selskab",
   "company.update": "opdaterede selskab",
@@ -29,6 +30,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "organization.logo": "ændrede koncernens logo",
   "organization.cover": "ændrede forsidefoto til rapporter",
   "organization.brand": "ændrede rapportfarve",
+  "user.email": "ændrede e-mail for bruger",
   "report.content.copy": "hentede tekster fra sidste års rapport",
   "report.image.add": "tilføjede billede til rapport",
   "report.image.delete": "fjernede billede fra rapport",

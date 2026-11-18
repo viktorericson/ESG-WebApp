@@ -2,11 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, FieldError, SubmitButton } from "@/components/action-form";
 import { Badge, Card, CardHeader, EmptyState, Input, Label, PageHeader, Select } from "@/components/ui";
-import { grantOrgAccess, removeMembership, setMembershipRole, setUserDisabled, signOutUser, updateUser } from "@/lib/actions/admin";
+import { grantOrgAccess, impersonateUser, removeMembership, setMembershipRole, setPlatformAdmin, setUserDisabled, signOutUser, updateUser } from "@/lib/actions/admin";
 import { formatBytes, formatDate, formatTime, requirePlatformAdmin } from "@/lib/admin";
 import { ACTION_LABELS } from "@/lib/audit-labels";
 import { db } from "@/lib/db";
 import { isPlatformAdmin } from "@/lib/env";
+import { IMPERSONATION_HOURS } from "@/lib/session";
 import { ROLE_LABELS } from "@/lib/permissions";
 
 export default async function AdminUser({ params }: PageProps<"/admin/users/[userId]">) {
@@ -19,7 +20,8 @@ export default async function AdminUser({ params }: PageProps<"/admin/users/[use
         include: { organization: { select: { id: true, name: true } }, company: { select: { name: true } }, location: { select: { name: true } } },
         orderBy: { createdAt: "asc" },
       },
-      sessions: { where: { expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } },
+      // Kun brugerens egne logins – ikke admins, der er logget ind som brugeren
+      sessions: { where: { expiresAt: { gt: new Date() }, impersonatorId: null }, orderBy: { createdAt: "desc" } },
       attachments: { orderBy: { createdAt: "desc" }, take: 20, include: { moduleData: { include: { company: { select: { name: true } } } } } },
       auditLogs: { orderBy: { createdAt: "desc" }, take: 15, include: { organization: { select: { name: true } } } },
     },
@@ -37,7 +39,7 @@ export default async function AdminUser({ params }: PageProps<"/admin/users/[use
         title={
           <span className="flex flex-wrap items-center gap-3">
             {user.email}
-            {isPlatformAdmin(user.email) && <Badge>Platformejer</Badge>}
+            {isPlatformAdmin(user.email) ? <Badge>Platformejer</Badge> : user.platformAdmin && <Badge>Platform-admin</Badge>}
             {user.disabledAt && <Badge tone="red">Spærret</Badge>}
           </span>
         }
@@ -155,6 +157,56 @@ export default async function AdminUser({ params }: PageProps<"/admin/users/[use
         </div>
 
         <aside className="space-y-6">
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold">Log ind som brugeren</h3>
+            {isSelf || user.platformAdmin || isPlatformAdmin(user.email) ? (
+              <p className="mt-1 text-xs text-neutral-500">{isSelf ? "Det er din egen konto." : "Du kan ikke logge ind som en anden admin."}</p>
+            ) : user.disabledAt ? (
+              <p className="mt-1 text-xs text-neutral-500">Brugeren er spærret.</p>
+            ) : (
+              <>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Se og arbejd i appen præcis som brugeren – fx for at udfylde data. Ændringer står i koncernens aktivitetslog med din e-mail. Gælder højst {IMPERSONATION_HOURS} timer, og du kommer
+                  tilbage med “Tilbage til admin” øverst på siden.
+                </p>
+                <ActionForm action={impersonateUser} className="mt-3">
+                  <input type="hidden" name="userId" value={user.id} />
+                  <SubmitButton pendingText="Logger ind…">Log ind som {user.email}</SubmitButton>
+                </ActionForm>
+              </>
+            )}
+          </Card>
+
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold">Platform-admin</h3>
+            {isPlatformAdmin(user.email) ? (
+              <p className="mt-1 text-xs text-neutral-500">Platformens ejer (PLATFORM_ADMIN_EMAILS) – er altid admin og kan ikke ændres her.</p>
+            ) : (
+              <>
+                <p className="mt-1 text-xs text-neutral-500">
+                  {user.platformAdmin
+                    ? "Har adgang til platform-admin: alle koncerner og brugere, kan oprette koncerner og give andre admin."
+                    : "Giv adgang til platform-admin: alle koncerner og brugere, oprette koncerner og give andre admin."}
+                </p>
+                {isSelf ? (
+                  <p className="mt-3 text-xs text-neutral-500">Du kan ikke fjerne din egen admin-adgang.</p>
+                ) : (
+                  <ActionForm
+                    action={setPlatformAdmin}
+                    className="mt-3"
+                    confirm={user.platformAdmin ? `Fjern ${user.email} som platform-admin? Brugeren logges ud.` : `Gør ${user.email} til platform-admin med adgang til alle koncerner?`}
+                  >
+                    <input type="hidden" name="userId" value={user.id} />
+                    <input type="hidden" name="on" value={user.platformAdmin ? "0" : "1"} />
+                    <SubmitButton variant={user.platformAdmin ? "danger" : "secondary"} pendingText="…">
+                      {user.platformAdmin ? "Fjern som platform-admin" : "Gør til platform-admin"}
+                    </SubmitButton>
+                  </ActionForm>
+                )}
+              </>
+            )}
+          </Card>
+
           <Card>
             <CardHeader title="Profil" />
             <ActionForm action={updateUser} className="space-y-4 p-5">
@@ -167,7 +219,7 @@ export default async function AdminUser({ params }: PageProps<"/admin/users/[use
                 <Label htmlFor="email">E-mail</Label>
                 <Input id="email" name="email" type="email" required defaultValue={user.email} className="mt-1" />
                 <FieldError name="email" />
-                <p className="mt-1 text-xs text-neutral-500">Brugeren logger ind med den nye adresse fremover.</p>
+                <p className="mt-1 text-xs text-neutral-500">Brugeren logger ind med den nye adresse fremover og logges ud, når adressen skiftes.</p>
               </div>
               <SubmitButton>Gem</SubmitButton>
             </ActionForm>

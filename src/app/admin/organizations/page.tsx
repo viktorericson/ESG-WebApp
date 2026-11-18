@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { Card, EmptyState, PageHeader } from "@/components/ui";
+import { ActionForm, FieldError, SubmitButton } from "@/components/action-form";
+import { OrgImport } from "@/components/org-import";
+import { Card, CardHeader, EmptyState, Input, Label, PageHeader } from "@/components/ui";
+import { createOrganizationAsAdmin } from "@/lib/actions/admin";
+import { env } from "@/lib/env";
 import { formatBytes, formatDate, requirePlatformAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 
@@ -68,6 +72,44 @@ export default async function AdminOrganizations() {
             </table>
           </div>
         )}
+      </Card>
+      <Card className="mt-6">
+        <CardHeader title="Opret koncern" description="Med moderselskab og evt. koncernadmin. Findes adressen ikke som bruger, oprettes den; koncernadmin logger ind med login-link." />
+        <ActionForm action={createOrganizationAsAdmin} className="grid gap-3 p-5 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="orgName">Koncernens navn</Label>
+            <Input id="orgName" name="orgName" required className="mt-1" />
+            <FieldError name="orgName" />
+          </div>
+          <div>
+            <Label htmlFor="adminEmail">Koncernadmin (e-mail, valgfrit)</Label>
+            <Input id="adminEmail" name="adminEmail" type="email" className="mt-1" />
+            <FieldError name="adminEmail" />
+          </div>
+          <div>
+            <Label htmlFor="companyName">Moderselskabets navn</Label>
+            <Input id="companyName" name="companyName" required className="mt-1" />
+            <FieldError name="companyName" />
+          </div>
+          <div>
+            <Label htmlFor="cvr">CVR-nummer</Label>
+            <Input id="cvr" name="cvr" required inputMode="numeric" className="mt-1" />
+            <FieldError name="cvr" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="licenseKey">Licensnøgle {env.licenseRequired ? "(kan også sættes senere)" : "(bruges ikke på denne installation)"}</Label>
+            <Input id="licenseKey" name="licenseKey" className="mt-1" disabled={!env.licenseRequired} />
+            <FieldError name="licenseKey" />
+            {env.licenseRequired && <p className="mt-1 text-xs text-neutral-500">Uden nøgle er koncernen låst, indtil koncernadmin sætter en.</p>}
+          </div>
+          <div className="sm:col-span-2">
+            <SubmitButton>Opret koncern</SubmitButton>
+          </div>
+        </ActionForm>
+      </Card>
+      <Card className="mt-6">
+        <CardHeader title="Importér koncern" description="Fra en eksportfil (*.esgkoncern.zip) lavet med “Eksportér koncern” på en anden installation." />
+        <OrgImport />
       </Card>
     </>
   );

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { audit } from "@/lib/audit";
 import { requireOrgAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { orgLicenseStatus } from "@/lib/license-server";
 import { buildReportPptx } from "@/lib/export/load";
 import { PdfUnavailableError, pptxToPdf } from "@/lib/export/pdf";
 
@@ -22,9 +23,11 @@ export async function GET(req: Request, ctx: RouteContext<"/api/reports/[reportI
   const found = await db.report.findUnique({ where: { id: reportId }, select: { id: true, period: { select: { organizationId: true } } } });
   if (!found) return new NextResponse("Ikke fundet", { status: 404 });
   const orgId = found.period.organizationId;
-  const { user, access } = await requireOrgAccess(orgId);
+  const { user, access, organization } = await requireOrgAccess(orgId);
   // Samme adgang som rapportsiden: koncernadmin og læsere/revisorer
   if (!access.canViewAll) return new NextResponse("Ikke fundet", { status: 404 });
+  const license = await orgLicenseStatus(organization);
+  if (license && !license.ok) return new NextResponse("Koncernen har ingen gyldig licens.", { status: 403 });
 
   const { buffer, report } = await buildReportPptx(reportId);
   let body: Buffer = buffer;
