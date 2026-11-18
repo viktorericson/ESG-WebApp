@@ -8,8 +8,8 @@ import { contrastWithWhite, MIN_CONTRAST, normalizeHex } from "@/lib/brand";
 import { requireOrgAccess, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { env, showDevLinks } from "@/lib/env";
-import { afterFetch, LICENSE_MESSAGES, licenseValidity, normalizeKey, userLimitReached, validKey, type StoredLicense } from "@/lib/license";
-import { countLicensedUsers, fetchLicense, orgLicenseStatus } from "@/lib/license-server";
+import { afterFetch, LICENSE_MESSAGES, licenseValidity, normalizeKey, userLimitMessage, validKey, type StoredLicense } from "@/lib/license";
+import { exceedsUserLimit, fetchLicense, orgLicenseStatus, orgsWithKey } from "@/lib/license-server";
 import { sendMail } from "@/lib/mail";
 import { ROLE_LABELS, validParentIds } from "@/lib/permissions";
 import { createSession } from "@/lib/session";
@@ -52,35 +52,28 @@ export async function createOrganization(_prev: ActionState, fd: FormData): Prom
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error) };
   const { orgName, companyName, cvr } = parsed.data;
 
-  // Licensen tjekkes før koncernen oprettes; nøglen kan kun bruges af én koncern
+  // Licensen tjekkes før koncernen oprettes. Nøglen kan deles med andre koncerner, men brugergrænsen gælder samlet.
   let license = {};
   if (env.licenseRequired) {
     const key = normalizeKey(fd.get("licenseKey"));
     if (!validKey(key)) return { fieldErrors: { licenseKey: LICENSE_MESSAGES.invalid_key } };
-    if (await db.organization.findUnique({ where: { licenseKey: key }, select: { id: true } })) return { fieldErrors: { licenseKey: LICENSE_MESSAGES.in_use } };
     const result = await fetchLicense(key);
     if (!result.ok) return { fieldErrors: { licenseKey: LICENSE_MESSAGES[result.reason] } };
     const now = new Date();
     license = { licenseKey: key, ...afterFetch(result, now) };
     const valid = licenseValidity(license as StoredLicense, now);
     if (!valid.ok) return { fieldErrors: { licenseKey: LICENSE_MESSAGES[valid.reason] } };
+    if (await exceedsUserLimit(result.license, key, { extraUserIds: [user.id] })) return { fieldErrors: { licenseKey: userLimitMessage(result.license.limit, true) } };
   }
 
-  const org = await db.organization
-    .create({
-      data: {
-        ...license,
-        name: orgName,
-        memberships: { create: { userId: user.id, role: "ORG_ADMIN" } },
-        companies: { create: { name: companyName, cvr } },
-      },
-    })
-    // To samtidige oprettelser med samme nøgle: den unikke nøgle afviser den ene
-    .catch((e: unknown) => {
-      if ((e as { code?: string }).code === "P2002") return null;
-      throw e;
-    });
-  if (!org) return { fieldErrors: { licenseKey: LICENSE_MESSAGES.in_use } };
+  const org = await db.organization.create({
+    data: {
+      ...license,
+      name: orgName,
+      memberships: { create: { userId: user.id, role: "ORG_ADMIN" } },
+      companies: { create: { name: companyName, cvr } },
+    },
+  });
   await audit({ organizationId: org.id, userId: user.id, action: "organization.create", entityType: "Organization", entityId: org.id });
   redirect(`/org/${org.id}`);
 }
@@ -294,15 +287,11 @@ export async function inviteMember(_prev: ActionState, fd: FormData): Promise<Ac
     if (dup) return { error: `${email} har allerede denne adgang.` };
   }
 
-  // Brugergrænse i licensen: en ny person må ikke bringe koncernen over grænsen
+  // Brugergrænse i licensen: en ny person må ikke bringe licensen over grænsen – samlet for alle
+  // koncerner, der deler nøglen. Er personen allerede med i en af dem, tæller hen ikke igen.
   const status = await orgLicenseStatus(organization);
-  if (status?.ok) {
-    const counted =
-      (existingUser && (await db.membership.count({ where: { userId: existingUser.id, organizationId: orgId } })) > 0) ||
-      (await db.invitation.count({ where: { organizationId: orgId, email, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } } })) > 0;
-    if (!counted && userLimitReached(status.license, await countLicensedUsers(orgId))) {
-      return { error: `Licensen dækker højst ${status.license.limit} brugere, og de er alle i brug (inkl. åbne invitationer). Fjern en adgang, eller kontakt Capana for en større licens.` };
-    }
+  if (status?.ok && (await exceedsUserLimit(status.license, organization.licenseKey, { orgId, extraEmails: [email] }))) {
+    return { error: userLimitMessage(status.license.limit, (await orgsWithKey(organization.licenseKey)).length > 1) };
   }
 
   // Erstat evt. tidligere åben invitation til samme adgang

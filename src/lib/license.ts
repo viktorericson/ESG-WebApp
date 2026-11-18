@@ -1,13 +1,15 @@
 /**
  * Capana-licens – rene funktioner (ingen I/O), så de kan enhedstestes.
  *
- * Hver koncern har én licensnøgle, som tjekkes mod licensserveren (capana-license-backend):
+ * Hver koncern har en licensnøgle, som tjekkes mod licensserveren (capana-license-backend). Samme nøgle
+ * kan deles af flere koncerner; en brugergrænse gælder så samlet for alle koncerner med nøglen.
+ *
  *   GET <LICENSE_SERVER_URL>/license/<nøgle>            – extension-licenser (standard)
  *   GET <LICENSE_SERVER_URL>/license/<nøgle>?type=<type> – andre typer, fx "mcp"
  * En extension-licens svarer { _id, expires (ms) } uden type; andre typer { _id, type, expires, limitType, limit }.
  * Ukendte, tilbagekaldte og nøgler af en anden type giver 404.
  *
- * Det seneste gyldige svar gemmes på koncernen. Kan serveren ikke nås, bruges det i højst 7 dage;
+ * Det seneste gyldige svar gemmes på alle koncerner med nøglen. Kan serveren ikke nås, bruges det i højst 7 dage;
  * en nøgle, serveren ikke kender (tilbagekaldt), gælder med det samme.
  */
 
@@ -20,7 +22,7 @@ export const REFRESH_MS = 3600 * 1000;
 
 export type LicenseInfo = { limitType: string | null; limit: number | null; expiresAt: Date };
 
-export type LicenseReason = "no_key" | "invalid_key" | "not_found" | "wrong_type" | "unreachable" | "invalid_response" | "expired" | "unverified" | "in_use";
+export type LicenseReason = "no_key" | "invalid_key" | "not_found" | "wrong_type" | "unreachable" | "invalid_response" | "expired" | "unverified";
 
 export type FetchResult = { ok: true; license: LicenseInfo } | { ok: false; reason: LicenseReason };
 
@@ -45,7 +47,6 @@ export const LICENSE_MESSAGES: Record<LicenseReason, string> = {
   invalid_response: "Licensserveren svarede uventet. Kontakt Capana.",
   expired: "Licensen er udløbet.",
   unverified: "Licensen er ikke bekræftet endnu.",
-  in_use: "Licensnøglen bruges allerede af en anden koncern.",
 };
 
 export const normalizeKey = (key: unknown) => (typeof key === "string" ? key.trim() : "");
@@ -97,6 +98,21 @@ export function afterFetch(result: FetchResult, now: Date): Partial<StoredLicens
   // Ukendt, tilbagekaldt eller forkert type: glem det gemte svar med det samme
   return { licenseLimitType: null, licenseLimit: null, licenseExpiresAt: null, licenseCheckedAt: null, licenseError: result.reason };
 }
+
+/**
+ * Antal personer, der tæller under en brugergrænse: medlemmer (pr. bruger) plus åbne invitationer til
+ * adresser, der ikke allerede er medlem. Samme person i flere koncerner med nøglen tæller én gang.
+ */
+export function licensedUserCount(members: { userId: string; email: string }[], inviteEmails: string[]): number {
+  const users = new Set(members.map((m) => m.userId));
+  const memberEmails = new Set(members.map((m) => m.email.toLowerCase()));
+  const invites = new Set(inviteEmails.map((e) => e.toLowerCase()).filter((e) => !memberEmails.has(e)));
+  return users.size + invites.size;
+}
+
+/** Besked, når en handling ville bringe en delt eller ikke-delt licens over brugergrænsen */
+export const userLimitMessage = (limit: number | null, shared: boolean) =>
+  `Licensen dækker højst ${limit} brugere${shared ? " samlet for alle koncerner, der deler nøglen" : ""}, og de er alle i brug (inkl. åbne invitationer). Fjern en adgang, eller kontakt Capana for en større licens.`;
 
 /** Er der plads til endnu en bruger under licensens grænse? (kun ved limitType "users") */
 export function userLimitReached(license: LicenseInfo, users: number) {

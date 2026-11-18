@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { audit } from "@/lib/audit";
 import { requireOrgAccess } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { LICENSE_MESSAGES, maskKey, normalizeKey, validKey } from "@/lib/license";
-import { refreshLicense } from "@/lib/license-server";
+import { LICENSE_MESSAGES, maskKey, normalizeKey, userLimitMessage, validKey } from "@/lib/license";
+import { exceedsUserLimit, fetchLicense, refreshLicense } from "@/lib/license-server";
 import type { ActionState } from "@/lib/validation";
 
 const NO_ACCESS: ActionState = { error: "Kun koncernadmin kan ændre licensen." };
@@ -18,8 +18,13 @@ export async function setLicenseKey(_prev: ActionState, fd: FormData): Promise<A
 
   const key = normalizeKey(fd.get("licenseKey"));
   if (!validKey(key)) return { fieldErrors: { licenseKey: LICENSE_MESSAGES.invalid_key } };
-  const other = await db.organization.findUnique({ where: { licenseKey: key }, select: { id: true } });
-  if (other && other.id !== orgId) return { fieldErrors: { licenseKey: LICENSE_MESSAGES.in_use } };
+  // Nøglen kan deles med andre koncerner. Kobles koncernen på en nøgle med brugergrænse, må dens
+  // brugere ikke bringe den samlede licens over grænsen.
+  if (key !== organization.licenseKey) {
+    const result = await fetchLicense(key);
+    if (!result.ok) return { fieldErrors: { licenseKey: LICENSE_MESSAGES[result.reason] } };
+    if (await exceedsUserLimit(result.license, key, { orgId })) return { fieldErrors: { licenseKey: userLimitMessage(result.license.limit, true) } };
+  }
 
   const org = await db.organization.update({
     where: { id: orgId },

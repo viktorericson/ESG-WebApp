@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { afterFetch, licenseValidity, maskKey, MAX_OFFLINE_MS, needsRefresh, parseLicense, REFRESH_MS, userLimitReached, validKey, type StoredLicense } from "./license";
+import { afterFetch, licensedUserCount, LICENSE_MESSAGES, licenseValidity, maskKey, userLimitMessage, MAX_OFFLINE_MS, needsRefresh, parseLicense, REFRESH_MS, userLimitReached, validKey, type StoredLicense } from "./license";
 
 const KEY = "ABCD-1234-efgh";
 const now = new Date("2026-11-17T10:00:00Z");
@@ -100,5 +100,24 @@ describe("needsRefresh og userLimitReached", () => {
     expect(userLimitReached(lic, 5)).toBe(true);
     expect(userLimitReached({ ...lic, limitType: "reports" }, 50)).toBe(false);
     expect(userLimitReached({ ...lic, limit: null }, 50)).toBe(false);
+  });
+});
+
+describe("delt licens", () => {
+  it("tæller hver person én gang på tværs af koncerner og invitationer", () => {
+    const members = [
+      { userId: "u1", email: "a@x.dk" },
+      { userId: "u1", email: "a@x.dk" }, // samme person i to koncerner
+      { userId: "u2", email: "B@x.dk" },
+    ];
+    expect(licensedUserCount(members, [])).toBe(2);
+    // Invitation til en, der allerede er medlem (uanset store/små bogstaver), tæller ikke ekstra
+    expect(licensedUserCount(members, ["b@x.dk", "c@x.dk", "C@x.dk"])).toBe(3);
+  });
+
+  it("har ingen besked om, at en nøgle er i brug andre steder", () => {
+    expect(Object.keys(LICENSE_MESSAGES)).not.toContain("in_use");
+    expect(userLimitMessage(5, true)).toContain("samlet for alle koncerner");
+    expect(userLimitMessage(5, false)).not.toContain("samlet");
   });
 });

@@ -209,7 +209,9 @@ Uden mailopsætning skrives login-links i containerens log (fanen *Logs* i CapRo
 
 ### Licens
 
-En koncern kan kun oprettes med en gyldig Capana-licensnøgle, og den knyttes til koncernen (én nøgle pr. koncern).
+En koncern kan kun oprettes med en gyldig Capana-licensnøgle, som knyttes til koncernen. Samme nøgle kan deles af flere
+koncerner (fx en koncern med flere selvstændige enheder eller en rådgiver); en brugergrænse gælder så samlet for dem alle,
+og et licenstjek opdaterer alle koncerner med nøglen.
 Inviterede brugere skal ikke bruge en nøgle. Nøglen tjekkes mod Capanas licensserver (capana-license-backend,
 standard `https://license.capana.dk`) som en extension-licens: `GET /license/<nøgle>`, der svarer `{ _id, expires }` eller 404.
 Sæt `LICENSE_TYPE` (fx `mcp`) for at bruge en anden licenstype; så sendes `?type=<LICENSE_TYPE>`, og svaret har også `type`,

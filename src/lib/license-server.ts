@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "./db";
 import { env } from "./env";
-import { afterFetch, EXTENSION, licenseValidity, needsRefresh, parseLicense, type FetchResult, type LicenseStatus, type StoredLicense } from "./license";
+import { afterFetch, EXTENSION, licensedUserCount, licenseValidity, needsRefresh, parseLicense, type FetchResult, type LicenseStatus, type StoredLicense } from "./license";
 
 /** Slår en nøgle op hos licensserveren */
 export async function fetchLicense(key: string, fetchFn: typeof fetch = fetch): Promise<FetchResult> {
@@ -38,7 +38,10 @@ export async function refreshLicense(org: OrgLicense): Promise<LicenseStatus> {
   lastAttempt.set(org.id, Date.now());
   const now = new Date();
   const fields = afterFetch(await fetchLicense(org.licenseKey), now);
-  const updated = await db.organization.update({ where: { id: org.id }, data: fields });
+  // Svaret gælder alle koncerner med nøglen – fx slår en tilbagekaldelse igennem for dem alle med det samme
+  await db.organization.updateMany({ where: { licenseKey: org.licenseKey }, data: fields });
+  for (const o of await db.organization.findMany({ where: { licenseKey: org.licenseKey }, select: { id: true } })) lastAttempt.set(o.id, Date.now());
+  const updated = await db.organization.findUniqueOrThrow({ where: { id: org.id } });
   return licenseValidity(updated, now);
 }
 
@@ -54,11 +57,41 @@ export async function orgLicenseStatus(org: OrgLicense): Promise<LicenseStatus |
   return licenseValidity(org, now);
 }
 
-/** Antal brugere, der tæller med under en brugergrænse: medlemmer plus åbne invitationer */
-export async function countLicensedUsers(orgId: string) {
-  const [members, invites] = await Promise.all([
-    db.membership.findMany({ where: { organizationId: orgId }, distinct: ["userId"], select: { userId: true } }),
-    db.invitation.findMany({ where: { organizationId: orgId, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } }, distinct: ["email"], select: { email: true } }),
+/** Koncerner, der bruger nøglen */
+export async function orgsWithKey(key: string | null): Promise<{ id: string; name: string }[]> {
+  if (!key) return [];
+  return db.organization.findMany({ where: { licenseKey: key }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+}
+
+/**
+ * Antal personer under licensens brugergrænse – samlet for alle koncerner med nøglen.
+ * `orgId` medtages, også hvis den endnu ikke har nøglen (fx når en koncern skal kobles på).
+ * `extraUserIds`/`extraEmails` er personer, der er ved at få adgang, så man kan regne "efter".
+ */
+export async function countLicensedUsers(key: string | null, opts: { orgId?: string; extraUserIds?: string[]; extraEmails?: string[] } = {}) {
+  const orgIds = (await orgsWithKey(key)).map((o) => o.id);
+  if (opts.orgId && !orgIds.includes(opts.orgId)) orgIds.push(opts.orgId);
+  const [members, invites, extraUsers] = await Promise.all([
+    db.membership.findMany({ where: { organizationId: { in: orgIds } }, distinct: ["userId"], select: { userId: true, user: { select: { email: true } } } }),
+    db.invitation.findMany({ where: { organizationId: { in: orgIds }, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } }, distinct: ["email"], select: { email: true } }),
+    opts.extraUserIds?.length ? db.user.findMany({ where: { id: { in: opts.extraUserIds } }, select: { id: true, email: true } }) : [],
   ]);
-  return members.length + invites.length;
+  return licensedUserCount(
+    [...members.map((m) => ({ userId: m.userId, email: m.user.email })), ...extraUsers.map((u) => ({ userId: u.id, email: u.email }))],
+    [...invites.map((i) => i.email), ...(opts.extraEmails ?? [])],
+  );
+}
+
+/**
+ * Ville handlingen bringe licensen over brugergrænsen? Kun nye personer tæller: er de allerede med
+ * (i en af koncernerne med nøglen), ændrer tallet sig ikke.
+ */
+export async function exceedsUserLimit(
+  license: { limitType: string | null; limit: number | null },
+  key: string | null,
+  opts: { orgId?: string; extraUserIds?: string[]; extraEmails?: string[] },
+): Promise<boolean> {
+  if (license.limitType !== "users" || license.limit === null) return false;
+  const [before, after] = await Promise.all([countLicensedUsers(key, { orgId: opts.orgId && (await orgsWithKey(key)).some((o) => o.id === opts.orgId) ? opts.orgId : undefined }), countLicensedUsers(key, opts)]);
+  return after > before && after > license.limit;
 }

@@ -96,9 +96,10 @@ model Organization {
   coverKey         String?
   coverContentType String?
   coverUpdatedAt   DateTime?
-  /// Capana-licens (license.capana.dk). Én nøgle pr. koncern. Seneste gyldige svar gemmes, så en genstart
-  /// ikke afhænger af licensserveren; licenseExpiresAt er null, når nøglen ikke er bekræftet.
-  licenseKey       String?   @unique
+  /// Capana-licens (license.capana.dk). Samme nøgle kan deles af flere koncerner; en brugergrænse gælder
+  /// så samlet for dem. Seneste gyldige svar gemmes, så en genstart ikke afhænger af licensserveren;
+  /// licenseExpiresAt er null, når nøglen ikke er bekræftet.
+  licenseKey       String?
   licenseLimitType String?
   licenseLimit     Int?
   licenseExpiresAt DateTime?
@@ -112,6 +113,8 @@ model Organization {
   periods     ReportingPeriod[]
   auditLogs   AuditLog[]
   factorSets  FactorSet[]
+
+  @@index([licenseKey])
 }
 
 enum LegalForm {

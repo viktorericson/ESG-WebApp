@@ -2,7 +2,7 @@ import { InviteForm } from "@/components/invite-form";
 import { MemberList } from "@/components/member-list";
 import { Card, CardHeader, PageHeader } from "@/components/ui";
 import { deny, requireOrgAccess } from "@/lib/auth";
-import { countLicensedUsers, orgLicenseStatus } from "@/lib/license-server";
+import { countLicensedUsers, orgLicenseStatus, orgsWithKey } from "@/lib/license-server";
 import { getInviteOptions, getMembersAndInvites, getVisibleCompanies } from "@/lib/org-data";
 
 export const metadata = { title: "Medlemmer" };
@@ -25,13 +25,14 @@ export default async function MembersPage({ params }: PageProps<"/org/[orgId]/me
 
   const license = access.isAdmin ? await orgLicenseStatus(organization) : null;
   const userLimit = license?.ok && license.license.limitType === "users" ? license.license.limit : null;
-  const used = userLimit !== null ? await countLicensedUsers(orgId) : 0;
+  const used = userLimit !== null ? await countLicensedUsers(organization.licenseKey, { orgId }) : 0;
+  const shared = userLimit !== null && (await orgsWithKey(organization.licenseKey)).length > 1;
 
   return (
     <>
       <PageHeader
         title="Medlemmer"
-        description={`Hvem har adgang, og til hvad. Invitationer sendes pr. mail og gælder i 14 dage.${userLimit !== null ? ` Licensen dækker ${userLimit} brugere – ${used} er i brug, inkl. åbne invitationer.` : ""}`}
+        description={`Hvem har adgang, og til hvad. Invitationer sendes pr. mail og gælder i 14 dage.${userLimit !== null ? ` Licensen dækker ${userLimit} brugere${shared ? " samlet for alle koncerner, der deler nøglen" : ""} – ${used} er i brug, inkl. åbne invitationer.` : ""}`}
       />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card>

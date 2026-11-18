@@ -8,7 +8,7 @@ import { TEMPLATE_DARK } from "@/lib/brand";
 import { deny, requireOrgAccess } from "@/lib/auth";
 import { ACTION_LABELS } from "@/lib/audit-labels";
 import { db } from "@/lib/db";
-import { countLicensedUsers, orgLicenseStatus } from "@/lib/license-server";
+import { countLicensedUsers, orgLicenseStatus, orgsWithKey } from "@/lib/license-server";
 
 export const metadata = { title: "Indstillinger" };
 
@@ -26,7 +26,7 @@ export default async function SettingsPage({ params }: PageProps<"/org/[orgId]/s
   const { orgId } = await params;
   const { access, organization } = await requireOrgAccess(orgId);
   if (!access.isAdmin) deny();
-  const [license, users] = await Promise.all([orgLicenseStatus(organization), countLicensedUsers(orgId)]);
+  const [license, users, sharing] = await Promise.all([orgLicenseStatus(organization), countLicensedUsers(organization.licenseKey, { orgId }), orgsWithKey(organization.licenseKey)]);
   const log = await db.auditLog.findMany({ where: { organizationId: orgId }, include: { user: true }, orderBy: { createdAt: "desc" }, take: 50 });
 
   return (
@@ -37,7 +37,7 @@ export default async function SettingsPage({ params }: PageProps<"/org/[orgId]/s
         {license && (
           <Card>
             <CardHeader title="Licens" description="Koncernens Capana-licens. Den tjekkes med licensserveren hver time." />
-            <LicensePanel orgId={orgId} org={organization} status={license} users={users} />
+            <LicensePanel orgId={orgId} org={organization} status={license} users={users} sharedWith={sharing.filter((o) => o.id !== orgId).length} />
           </Card>
         )}
         <Card>

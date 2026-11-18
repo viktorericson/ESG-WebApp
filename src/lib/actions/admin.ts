@@ -6,8 +6,8 @@ import { z } from "zod";
 import { adminLog, isPlatformOwner, requirePlatformAdmin } from "@/lib/admin";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
-import { afterFetch, LICENSE_MESSAGES, licenseValidity, normalizeKey, validKey, type StoredLicense } from "@/lib/license";
-import { fetchLicense } from "@/lib/license-server";
+import { afterFetch, LICENSE_MESSAGES, licenseValidity, normalizeKey, userLimitMessage, validKey, type StoredLicense } from "@/lib/license";
+import { exceedsUserLimit, fetchLicense } from "@/lib/license-server";
 import { startImpersonation } from "@/lib/session";
 import { storage } from "@/lib/storage";
 import { cvrSchema, emailSchema, fieldErrors, type ActionState } from "@/lib/validation";
@@ -134,13 +134,13 @@ export async function createOrganizationAsAdmin(_prev: ActionState, fd: FormData
   if (rawKey) {
     const key = normalizeKey(rawKey);
     if (!validKey(key)) return { fieldErrors: { licenseKey: LICENSE_MESSAGES.invalid_key } };
-    if (await db.organization.findUnique({ where: { licenseKey: key }, select: { id: true } })) return { fieldErrors: { licenseKey: LICENSE_MESSAGES.in_use } };
     const result = await fetchLicense(key);
     if (!result.ok) return { fieldErrors: { licenseKey: LICENSE_MESSAGES[result.reason] } };
     const now = new Date();
     license = { licenseKey: key, ...afterFetch(result, now) };
     const valid = licenseValidity(license as StoredLicense, now);
     if (!valid.ok) return { fieldErrors: { licenseKey: LICENSE_MESSAGES[valid.reason] } };
+    if (adminEmail && (await exceedsUserLimit(result.license, key, { extraEmails: [adminEmail] }))) return { fieldErrors: { licenseKey: userLimitMessage(result.license.limit, true) } };
   }
 
   const owner = adminEmail ? await db.user.upsert({ where: { email: adminEmail }, create: { email: adminEmail }, update: {} }) : null;

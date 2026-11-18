@@ -38,6 +38,7 @@ export default async function AdminOrganization({ params }: PageProps<"/admin/or
   // Koncernadmins (hele koncernen), én gang pr. bruger
   const orgAdmins = org.memberships.filter((m, i, all) => m.role === "ORG_ADMIN" && !m.companyId && !m.locationId && all.findIndex((x) => x.userId === m.userId && x.role === "ORG_ADMIN") === i);
   const license = licenseValidity(org, new Date());
+  const sharing = org.licenseKey ? await db.organization.findMany({ where: { licenseKey: org.licenseKey, id: { not: org.id } }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : [];
 
   return (
     <>
@@ -206,6 +207,22 @@ export default async function AdminOrganization({ params }: PageProps<"/admin/or
         </div>
 
         <aside className="space-y-6">
+          {sharing.length > 0 && (
+            <Card className="p-5">
+              <h3 className="text-sm font-semibold">Licensen deles med</h3>
+              <ul className="mt-2 space-y-1 text-sm">
+                {sharing.map((o) => (
+                  <li key={o.id}>
+                    <Link href={`/admin/organizations/${o.id}`} className="text-brand-700 hover:underline">
+                      {o.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-neutral-500">En brugergrænse i licensen gælder samlet for alle koncernerne.</p>
+            </Card>
+          )}
+
           <Card className="p-5">
             <h3 className="text-sm font-semibold">Din adgang</h3>
             {ownAccess.length > 0 ? (
